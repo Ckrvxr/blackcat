@@ -39,9 +39,6 @@ export const PANEL_STYLE = `
     input[type="checkbox"]:checked { background: #9dc2ff; border-color: #9dc2ff; }
     input[type="checkbox"]:checked::before { background: #17263b; transform: translateX(14px); }
     .hint { margin: 8px 0 12px; color: #a8b4c5; font-size: 12px; line-height: 1.6; }
-    footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 18px; border-top: 1px solid #353d49; background: #151921; }
-    .live-note { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #a8b4c5; }
-    .live-note::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #8ecdb1; flex-shrink: 0; }
     .other-action { display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ffffff0d; }
     .initialize { padding: 6px 10px; border: 1px solid #414b5b; border-radius: 7px; background: transparent; font-size: 12px; color: #c4cfdf; }
     .initialize:hover { background: #29313e; color: #fff; }

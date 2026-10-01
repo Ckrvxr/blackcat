@@ -46,7 +46,8 @@ test('userscript bundle includes the requested Chinese menu labels and settings 
     assert.ok(script.includes('⚙️ 更多设置'));
     assert.ok(script.includes('🌍 全局：{status}'));
     assert.ok(script.includes('🌐 此网站上: {status}'));
-    assert.ok(script.includes('即时生效 · 自动保存'));
+    assert.doesNotMatch(script, /即时生效 · 自动保存|正在调整全局主题/);
+    assert.doesNotMatch(panel, /panel\.scopeGlobal|panel\.live/);
     assert.ok(script.includes('初始化'));
     assert.ok(script.includes('panel.other'));
     assert.ok(script.includes('other-action'));

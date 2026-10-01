@@ -154,8 +154,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
             if (type === 'range') element('output', '', caption);
         }
         controls.set(key, control);
-        const inputEvent = ['range', 'text', 'number'].includes(type) ? 'input' : 'change';
-        control.addEventListener(inputEvent, () => {
+        const applyValue = () => {
             if (!valid(control)) {
                 control.setAttribute('aria-invalid', 'true');
                 control.closest('.field').classList.remove('changed');
@@ -164,7 +163,17 @@ export function openSettingsPanel({settings, hostname, onChange}) {
             }
             control.removeAttribute('aria-invalid');
             commit(changePanelSetting(current, hostname, key, readValue(control)));
-        });
+        };
+        if (type === 'range') {
+            const output = field.querySelector('output');
+            control.addEventListener('input', () => {
+                if (valid(control)) output.value = `${readValue(control)}%`;
+            });
+            control.addEventListener('change', applyValue);
+        } else {
+            const inputEvent = ['text', 'number'].includes(type) ? 'input' : 'change';
+            control.addEventListener(inputEvent, applyValue);
+        }
         return control;
     };
     const addCheck = (parent, key, label) => addControl(parent, key, label, 'checkbox');
@@ -217,16 +226,15 @@ export function openSettingsPanel({settings, hostname, onChange}) {
         commit(changePanelSetting(current, hostname, 'initialize'));
     });
 
-    const footer = element('footer', '', panel);
-    message(element('span', 'live-note', footer), 'panel.live');
-
     function refresh() {
         panel.lang = resolveLanguage(current.language);
         for (const {node, key, values} of messages) node.textContent = t(key, values);
         closeButton.setAttribute('aria-label', t('panel.close'));
         tabList.setAttribute('aria-label', t('panel.sections'));
         initialize.title = t('panel.initializeHelp');
-        scope.textContent = t(getPanelValue(current, hostname, 'siteThemeOnly') ? 'panel.scopeSite' : 'panel.scopeGlobal');
+        const siteScope = getPanelValue(current, hostname, 'siteThemeOnly');
+        scope.hidden = !siteScope;
+        if (siteScope) scope.textContent = t('panel.scopeSite');
         for (const [key, control] of controls) {
             if (control.getAttribute('aria-invalid') === 'true') continue;
             const value = getPanelValue(current, hostname, key);

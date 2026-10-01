@@ -21,7 +21,9 @@ export async function runUserscriptPanelBrowserTests() {
         const input = control(key);
         if (input.type === 'checkbox') input.checked = value;
         else input.value = String(value);
-        input.dispatchEvent(new Event(['range', 'text', 'number', 'color'].includes(input.type) ? 'input' : 'change', {bubbles: true}));
+        const inputEvent = ['range', 'text', 'number'].includes(input.type) ? 'input' : 'change';
+        input.dispatchEvent(new Event(inputEvent, {bubbles: true}));
+        if (input.type === 'range') input.dispatchEvent(new Event('change', {bubbles: true}));
     };
     await waitFor(() => Object.keys(globalThis.blackcatCommands || {}).length === 3);
     await waitFor(() => globalThis.BlackcatDarkReaderEngine.isEnabled());
@@ -33,8 +35,13 @@ export async function runUserscriptPanelBrowserTests() {
     await waitFor(() => globalThis.blackcatStoredSettings()?.detectDarkTheme === false);
     globalThis.blackcatStorageDelay = 80;
     const originalRender = renderingStyles();
-    change('brightness', 115);
-    assert(renderingStyles() !== originalRender, 'Theme must change synchronously, before storage resolves');
+    const brightnessSlider = control('brightness');
+    brightnessSlider.value = '115';
+    brightnessSlider.dispatchEvent(new Event('input', {bubbles: true}));
+    assert(renderingStyles() === originalRender, 'Dragging must not apply the theme before release');
+    assert(globalThis.blackcatStoredSettings().brightness === 100, 'Dragging must not persist an uncommitted value');
+    brightnessSlider.dispatchEvent(new Event('change', {bubbles: true}));
+    assert(renderingStyles() !== originalRender, 'Theme must change synchronously on release, before storage resolves');
     assert(globalThis.blackcatStoredSettings().brightness === 100, 'Test storage must still be pending');
     await waitFor(() => globalThis.blackcatStoredSettings()?.brightness === 115);
     results.push('built adapter applies changes before storage resolves');

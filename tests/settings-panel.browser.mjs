@@ -14,7 +14,9 @@ export async function runPanelBrowserTests() {
         assert(input, `Missing setting: ${key}`);
         if (input.type === 'checkbox') input.checked = value;
         else input.value = String(value);
-        input.dispatchEvent(new Event(input.type === 'range' || input.type === 'text' || input.type === 'number' || input.type === 'color' ? 'input' : 'change', {bubbles: true}));
+        const inputEvent = ['range', 'text', 'number'].includes(input.type) ? 'input' : 'change';
+        input.dispatchEvent(new Event(inputEvent, {bubbles: true}));
+        if (input.type === 'range') input.dispatchEvent(new Event('change', {bubbles: true}));
         await Promise.resolve();
     };
     const saved = [];
@@ -26,7 +28,8 @@ export async function runPanelBrowserTests() {
         saved.push(next);
     }});
     assert(root().querySelectorAll('[role="tab"]').length === 4, 'Four tabs are required');
-    assert(root().querySelectorAll('footer button').length === 0, 'Initialization must not remain in the footer');
+    assert(!root().querySelector('footer, .live-note'), 'The live-save notice must be removed');
+    assert(root().querySelector('.scope').hidden && !root().textContent.includes('正在调整全局主题'), 'The global-scope notice must be removed');
     assert(root().querySelector('[data-page="other"] [data-action="initialize"]'), 'Initialization must be inside Other');
     assert(!control('enabled') && !control('enabledByDefault'), 'Global enable and default-site switches must be removed from the panel');
     for (const key of ['mode', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor', 'automation.behavior']) {
@@ -62,21 +65,31 @@ export async function runPanelBrowserTests() {
     root().querySelector('[data-tab="theme"]').click();
     results.push('keyboard tab navigation');
 
+    const sliderWritesBeforeDrag = saved.length;
+    const brightnessSlider = control('brightness');
+    brightnessSlider.value = '117';
+    brightnessSlider.dispatchEvent(new Event('input', {bubbles: true}));
+    assert(saved.length === sliderWritesBeforeDrag, 'Dragging must not apply or save the theme');
+    assert(brightnessSlider.closest('.field').querySelector('output').value === '117%', 'Slider feedback should track the thumb while dragging');
+    brightnessSlider.dispatchEvent(new Event('change', {bubbles: true}));
+    assert(saved.at(-1).brightness === 117, 'Release must apply and save the final slider value');
     await change('brightness', 115);
-    assert(saved.at(-1).brightness === 115, 'Slider must persist without save');
+    assert(saved.at(-1).brightness === 115, 'Slider must persist on release without save');
     assert(control('brightness').closest('.field').classList.contains('changed'), 'Changed slider label must become bold');
     assert(getComputedStyle(control('brightness').closest('.field').querySelector('.caption')).fontWeight === '700', 'Changed caption must have bold computed style');
     await change('brightness', 100);
     assert(!control('brightness').closest('.field').classList.contains('changed'), 'Factory value must remove bold');
     assert(getComputedStyle(control('brightness')).width === getComputedStyle(control('brightness').closest('.field')).width, 'Sliders must use the full row width');
     assert(getComputedStyle(root().querySelector('[role="dialog"]')).fontFamily.includes('system-ui'), 'Page fonts must not leak into the UI');
-    results.push('immediate slider writes and factory-relative bold');
+    results.push('release-to-apply sliders and factory-relative bold');
 
     await change('siteThemeOnly', true);
+    assert(!root().querySelector('.scope').hidden && root().querySelector('.scope').textContent === 'Editing this site’s theme only', 'Site-specific scope context should remain visible');
     await change('brightness', 85);
     assert(saved.at(-1).brightness === 100, 'Site edits must not change global appearance');
     assert(saved.at(-1).siteThemes[location.hostname].brightness === 85, 'Site edits must persist in this site');
     await change('siteThemeOnly', false);
+    assert(root().querySelector('.scope').hidden, 'Global scope should not display a scope notice');
     assert(control('brightness').value === '100', 'Leaving site scope must restore global controls');
     assert(saved.at(-1).siteThemes['other.com'].brightness === 85, 'Other sites must remain intact');
     results.push('site scope isolation');
