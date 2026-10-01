@@ -1,0 +1,25 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>Blackcat engine smoke test</title>
+    <style>
+        html, body { min-height: 100%; background: #fff; color: #000; }
+        #sample { padding: 24px; background: #fff; color: #000; }
+    </style>
+</head>
+<body>
+    <main id="sample">A bright page for Dark Reader injection testing.</main>
+    <script>
+        const blackcatStore = new Map();
+        globalThis.GM_getValue = (key, fallback) => blackcatStore.has(key) ? blackcatStore.get(key) : fallback;
+        globalThis.GM_setValue = (key, value) => blackcatStore.set(key, value);
+        globalThis.GM_registerMenuCommand = (label, callback) => {
+            (globalThis.blackcatCommands ||= {})[label] = callback;
+        };
+        globalThis.GM_addValueChangeListener = () => 1;
+    </script>
+    <script src="/dist/engine.js"></script>
+    <script src="/dist/blackcat.user.js"></script>
+</body>
+</html>
