@@ -15,15 +15,11 @@ pnpm test:artifact
 pnpm verify:reproducible
 ```
 
-`pnpm build` fetches Dark Reader only if the exact pinned source checkout is not already present. `upstream.json` records the source commit and version; an existing checkout with a different revision or local modifications makes the build fail. Build dependencies, including Vite, are pinned in `package.json` and `pnpm-lock.yaml`; the Vite IIFE build asserts that it emits only one JavaScript file. Lifecycle scripts are disabled through `.npmrc`.
+`pnpm build` fetches Dark Reader only if the exact pinned source checkout is not already present. Root `upstream.json` records the source commit and version; an existing checkout with a different revision or local modifications makes the build fail. Build dependencies, including Vite, are pinned in `package.json` and `pnpm-lock.yaml`; the Vite IIFE build asserts that it emits only one JavaScript file. Lifecycle scripts are disabled through `.npmrc`.
 
-The repository's own adapter/build code is covered by `LICENSE`; the upstream engine's separate MIT notice is shipped as `dist/DARK-READER-LICENSE.txt`.
+The repository's adapter/build code is covered by `LICENSE`. The install script's banner identifies Dark Reader's upstream version, MIT license, and source revision; `dist/` contains only the installable file:
 
-The generated assets are:
-
-- `dist/blackcat.user.js` — single-file, self-contained installable userscript; it has no runtime `@require` dependency.
-- `dist/engine.js` — separately generated engine artifact for inspection and auditing; the installer does not load it.
-- `dist/upstream.json` and `dist/DARK-READER-LICENSE.txt` — provenance and upstream license.
+- `dist/blackcat.user.js` — single-file, self-contained userscript; it has no runtime `@require` dependency.
 
 For a tagged release, build with the tag that will contain the resulting assets, verify those tag-pinned assets, then commit `dist/` and create the tag on that commit:
 
@@ -42,14 +38,14 @@ After a release is published, open `dist/blackcat.user.js` from GitHub in Tamper
 
 ## Settings
 
-Open **More settings** from the existing userscript menu. The nonmodal window sits at the top right and can be closed with × or Escape; the page remains interactive.
+Open **All settings** from the existing userscript menu. The nonmodal window sits at the top right and can be closed with × or Escape; the page remains interactive.
 
-- **Theme**: all four rendering engines, brightness/contrast/grayscale/sepia, system controls, and dark-page detection. The theme is always dark; color-palette editing is not exposed.
-- **Site**: enablement and a separate theme for the current hostname. The theme tab indicates whether you are editing global or site-only values.
-- **Automation**: system preference, local-time schedule, or sunrise/sunset from manually entered coordinates; automation only enables or disables the dark theme. Only controls relevant to the selected mode are shown.
-- **Other**: interface language and the action to initialize every setting and clear saved site configurations. Global enablement remains in the existing menu; the two global switches are not shown in the panel.
+- **Global settings**: General (all-sites default enablement and skip-already-dark detection), global style controls (four rendering engines and brightness/contrast/grayscale/sepia), automation (system, schedule, or sunrise/sunset), interface language, and JSON configuration actions. The theme is always dark; color-palette editing is not exposed.
+- **Site settings**: enablement and a choice to follow the global style or use an independent style for the current hostname. Independent settings start as a copy of the global style, then persist when switching back to global. Site enablement is unavailable while the global switch is off.
 
-Valid changes apply immediately and are automatically persisted. Sliders update their readout while dragging, then apply and save the value on release. Storage writes are serialized so older writes cannot overwrite newer values. Invalid input is highlighted and does not change stored settings. A storage failure is shown in the window; change the option again to retry. There are no save/cancel actions. Bold option labels mark values different from factory defaults, including site-specific values. **Initialize** is in Other; it restores all defaults, including language and automation, and clears every saved site configuration.
+The global master switch remains in the userscript menu; when it is off, the per-site toggle menu command is hidden and the site switch is disabled with a prompt to turn the master switch on. Automation only enables or disables the dark theme, and only controls relevant to the selected mode are shown.
+
+Valid changes apply immediately and are automatically persisted. Sliders update their readout while dragging, then apply and save the value on release. Storage writes are serialized so older writes cannot overwrite newer values. Invalid input is highlighted and does not change stored settings. A storage failure is shown in the window; change the option again to retry. There are no save/cancel actions. Bold option labels mark values different from factory defaults, including site-specific values. In Other, Export downloads a versioned JSON backup of all settings, Import validates and replaces the full current configuration, and Clear restores defaults and deletes all saved site configuration. Warnings for import and clear appear below these actions.
 
 For real Chromium tests, install `agent-browser` and its Chromium runtime, then run:
 
@@ -58,10 +54,10 @@ pnpm build
 pnpm test:browser
 ```
 
-The browser tests cover the actual DOM controls and generated adapter, all rendering engines, live language changes, persistence failures, initialization, and narrow-window layout. They use a localhost fixture, not an installed userscript-manager extension; Safari Tampermonkey and Violentmonkey still need separate verification.
+The browser tests cover the actual DOM controls and generated adapter, all rendering engines, live language changes, persistence failures, configuration export/import/clear, and narrow-window layout. They use a localhost fixture, not an installed userscript-manager extension; Safari Tampermonkey and Violentmonkey still need separate verification.
 
 ## Reproducibility and auditing
 
-Run `pnpm verify:reproducible` to build twice and compare SHA-256-identical outputs. Both generated engine artifacts identify the exact Dark Reader source commit in their banner and in `dist/upstream.json`; the upstream source and MIT license remain available from that commit. `dist/` is generated output and must be rebuilt—not hand-edited—before publication.
+Run `pnpm verify:reproducible` to build twice and compare the installer byte-for-byte. Its banner identifies the Dark Reader version, MIT license, and exact source commit; root `upstream.json` pins the source. `dist/` is generated output and must be rebuilt—not hand-edited—before publication.
 
 The GitHub repository can serve the assets through jsDelivr. Published tags must never be moved or reused; a Git tag is technically mutable, so enable tag protection/immutable releases where available and publish checksums for the generated files.

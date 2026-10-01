@@ -1,6 +1,7 @@
 import {normalizeSettings} from './settings.mjs';
 import {resolveLanguage, translate} from './i18n.mjs';
 import {changePanelSetting, getPanelValue, isPanelSettingChanged} from './settings-panel-state.mjs';
+import {MAX_SETTINGS_FILE_BYTES, parseSettingsFile, serializeSettingsFile} from './settings-file.mjs';
 import {PANEL_STYLE} from './settings-panel-style.mjs';
 
 const HOST_ID = 'blackcat-settings-panel';
@@ -14,10 +15,11 @@ export function openSettingsPanel({settings, hostname, onChange}) {
     activePanel?.close();
     hostname = hostname.toLowerCase();
     let current = normalizeSettings(settings);
-    let activeTab = 'theme';
+    let activeTab = 'site';
     let revision = 0;
     let storageError = false;
-    const controls = new Map();
+    let fileNotice = null;
+    const controls = new Set();
     const messages = [];
     const pages = new Map();
     const tabs = new Map();
@@ -72,7 +74,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
         body.scrollTop = 0;
         if (focus) tabs.get(name).focus();
     };
-    for (const [key, label] of [['theme', 'panel.theme'], ['site', 'panel.siteTab'], ['automation', 'panel.automation'], ['other', 'panel.other']]) {
+    for (const [key, label] of [['site', 'panel.siteTab'], ['global', 'panel.theme']]) {
         const tab = message(element('button', 'tab', tabList), label);
         tab.type = 'button';
         tab.dataset.tab = key;
@@ -102,11 +104,10 @@ export function openSettingsPanel({settings, hostname, onChange}) {
 
     const updateStatus = () => {
         const invalid = [...controls.values()].some((control) => control.getAttribute('aria-invalid') === 'true');
-        status.hidden = !invalid && !storageError;
-        status.textContent = invalid ? t('panel.invalidInput') : storageError ? t('panel.saveError') : '';
+        status.hidden = !invalid && !storageError && !fileNotice;
+        status.textContent = invalid ? t('panel.invalidInput') : storageError ? t('panel.saveError') : fileNotice ? t(fileNotice) : '';
     };
     const valid = (control) => {
-        const key = control.dataset.setting;
         if (!control.validity.valid) return false;
         return control.type !== 'time' || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(control.value);
     };
@@ -116,8 +117,9 @@ export function openSettingsPanel({settings, hostname, onChange}) {
         if (control.type === 'number') return control.value === '' ? null : Number(control.value);
         return control.value;
     };
-    const commit = (next) => {
+    const commit = (next, notice = null) => {
         current = next;
+        fileNotice = notice;
         const version = ++revision;
         refresh();
         // The adapter applies synchronously and returns its queued storage completion.
@@ -133,13 +135,15 @@ export function openSettingsPanel({settings, hostname, onChange}) {
         }
     };
     const addControl = (parent, key, labelKey, type, options = {}) => {
+        const scope = options.scope || 'global';
         const field = element('label', type === 'range' ? 'field stack' : 'field', parent);
         const caption = element('span', 'caption', field);
         message(element('span', '', caption), labelKey);
         const control = element(type === 'select' ? 'select' : 'input', '', field);
         control.dataset.setting = key;
+        control.dataset.scope = scope;
         control.name = key;
-        control.id = `blackcat-control-${key}`;
+        control.id = `blackcat-control-${scope}-${key.replaceAll('.', '-')}`;
         field.htmlFor = control.id;
         if (type === 'select') {
             for (const [value, label] of options.choices) {
@@ -153,7 +157,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
             }
             if (type === 'range') element('output', '', caption);
         }
-        controls.set(key, control);
+        controls.add(control);
         const applyValue = () => {
             if (!valid(control)) {
                 control.setAttribute('aria-invalid', 'true');
@@ -162,7 +166,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
                 return;
             }
             control.removeAttribute('aria-invalid');
-            commit(changePanelSetting(current, hostname, key, readValue(control)));
+            commit(changePanelSetting(current, hostname, key, readValue(control), scope));
         };
         if (type === 'range') {
             const output = field.querySelector('output');
@@ -176,32 +180,49 @@ export function openSettingsPanel({settings, hostname, onChange}) {
         }
         return control;
     };
-    const addCheck = (parent, key, label) => addControl(parent, key, label, 'checkbox');
-    const addSelect = (parent, key, label, choices) => addControl(parent, key, label, 'select', {choices});
+    const addCheck = (parent, key, label, options = {}) => addControl(parent, key, label, 'checkbox', options);
+    const addSelect = (parent, key, label, choices, options = {}) => addControl(parent, key, label, 'select', {...options, choices});
     const hint = (parent, key) => message(element('p', 'hint', parent), key);
-    const condition = (parent, value) => {
+    const condition = (parent, value, setting = 'automation.mode') => {
         const group = element('div', '', parent);
         group.dataset.condition = value;
+        group.dataset.conditionSetting = setting;
         return group;
     };
+    const section = (parent, titleKey) => {
+        const group = element('section', 'settings-section', parent);
+        message(element('h2', 'section-title', group), titleKey);
+        return group;
+    };
+    const addThemeControls = (parent, scope, includeDarkPageDetection = true) => {
+        const scoped = {scope};
+        addSelect(parent, 'engine', 'panel.engine', [['dynamicTheme', 'engine.dynamic'], ['cssFilter', 'engine.filter'], ['svgFilter', 'engine.svgFilter'], ['staticTheme', 'engine.static']], scoped);
+        for (const [key, min, max] of [['brightness', 50, 150], ['contrast', 50, 150], ['grayscale', 0, 100], ['sepia', 0, 100]]) {
+            addControl(parent, key, `panel.${key}`, 'range', {min, max, step: 1, ...scoped});
+        }
+        if (includeDarkPageDetection) addCheck(parent, 'detectDarkTheme', 'panel.detectDark', scoped);
+    };
 
-    const theme = pages.get('theme');
-    const scope = element('p', 'scope', theme);
-    addSelect(theme, 'engine', 'panel.engine', [['dynamicTheme', 'engine.dynamic'], ['cssFilter', 'engine.filter'], ['svgFilter', 'engine.svgFilter'], ['staticTheme', 'engine.static']]);
-    for (const [key, min, max] of [['brightness', 50, 150], ['contrast', 50, 150], ['grayscale', 0, 100], ['sepia', 0, 100]]) {
-        addControl(theme, key, `panel.${key}`, 'range', {min, max, step: 1});
-    }
-    addCheck(theme, 'styleSystemControls', 'panel.systemControls');
-    addCheck(theme, 'detectDarkTheme', 'panel.detectDark');
+    const globalSettings = pages.get('global');
+    const general = section(globalSettings, 'panel.general');
+    addCheck(general, 'enabledByDefault', 'panel.enabledByDefault');
+    addCheck(general, 'detectDarkTheme', 'panel.detectDark');
+    const theme = section(globalSettings, 'panel.globalTheme');
+    addThemeControls(theme, 'global', false);
 
     const site = pages.get('site');
-    element('p', 'site-name', site).textContent = hostname;
-    addCheck(site, 'siteEnabled', 'panel.siteEnabledShort');
-    hint(site, 'panel.siteEnabledHelp');
-    addCheck(site, 'siteThemeOnly', 'panel.siteThemeShort');
-    hint(site, 'panel.siteThemeHelp');
+    const siteName = element('div', 'field site-name', site);
+    message(element('span', 'caption', siteName), 'panel.currentSite');
+    element('span', 'site-hostname', siteName).textContent = hostname;
+    const siteEnabled = addCheck(site, 'siteEnabled', 'panel.siteEnabledShort');
+    const globalRequired = hint(site, 'panel.globalRequired');
+    globalRequired.dataset.globalRequired = '';
+    addSelect(site, 'siteStyleMode', 'panel.siteStyle', [['global', 'panel.siteStyleFollowGlobal'], ['independent', 'panel.siteStyleIndependent']]);
+    const independentStyle = condition(site, 'independent', 'siteStyleMode');
+    message(element('p', 'subsection-title', independentStyle), 'panel.independentStyleSettings');
+    addThemeControls(independentStyle, 'site');
 
-    const automation = pages.get('automation');
+    const automation = section(globalSettings, 'panel.automation');
     addSelect(automation, 'automation.mode', 'panel.automationMode', [['none', 'panel.automationOff'], ['system', 'panel.automationSystem'], ['time', 'panel.automationTime'], ['location', 'panel.automationLocation']]);
     const schedule = condition(automation, 'time');
     addControl(schedule, 'automation.activation', 'panel.turnOnAt', 'time');
@@ -212,18 +233,74 @@ export function openSettingsPanel({settings, hostname, onChange}) {
     addControl(coordinates, 'location.longitude', 'panel.longitude', 'number', {min: -180, max: 180, step: 'any'});
     hint(coordinates, 'panel.locationNote');
 
-    const other = pages.get('other');
+    const other = section(globalSettings, 'panel.other');
     addSelect(other, 'language', 'panel.language', [['auto', 'panel.languageAuto'], ['en', 'panel.languageEnglish'], ['zh-CN', 'panel.languageChinese']]);
-    hint(other, 'panel.defaultsHelp');
-    const initializeDescription = hint(other, 'panel.initializeHelp');
-    initializeDescription.id = 'blackcat-initialize-help';
-    const initialize = message(element('button', 'initialize', element('div', 'other-action', other)), 'panel.reset');
-    initialize.type = 'button';
-    initialize.dataset.action = 'initialize';
-    initialize.setAttribute('aria-describedby', initializeDescription.id);
-    initialize.addEventListener('click', () => {
-        for (const control of controls.values()) control.removeAttribute('aria-invalid');
-        commit(changePanelSetting(current, hostname, 'initialize'));
+    const configActions = element('div', 'config-actions', other);
+    message(element('span', 'config-label', configActions), 'panel.configFile');
+    const configButtons = element('div', 'config-buttons', configActions);
+    const actionButton = (action, label) => {
+        const button = message(element('button', 'config-button', configButtons), label);
+        button.type = 'button';
+        button.dataset.action = action;
+        return button;
+    };
+    const exportButton = actionButton('export', 'panel.export');
+    const importButton = actionButton('import', 'panel.import');
+    const clearButton = actionButton('clear', 'panel.clear');
+    const configFileInput = element('input', '', configActions);
+    configFileInput.type = 'file';
+    configFileInput.accept = '.json,application/json';
+    configFileInput.hidden = true;
+    configFileInput.tabIndex = -1;
+    configFileInput.dataset.action = 'import-file';
+    message(element('p', 'config-warning', other), 'panel.importWarning');
+    message(element('p', 'config-warning', other), 'panel.clearWarning');
+
+    const clearInvalidControls = () => {
+        for (const control of controls) control.removeAttribute('aria-invalid');
+    };
+    exportButton.addEventListener('click', () => {
+        let url;
+        let link;
+        try {
+            const blob = new Blob([serializeSettingsFile(current)], {type: 'application/json'});
+            if (blob.size > MAX_SETTINGS_FILE_BYTES) throw new RangeError('Configuration is too large');
+            url = URL.createObjectURL(blob);
+            link = document.createElement('a');
+            link.href = url;
+            link.download = 'blackcat-settings.json';
+            link.style.position = 'fixed';
+            link.style.left = '-10000px';
+            (document.body || document.documentElement).append(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 1000);
+            fileNotice = 'panel.exportSuccess';
+        } catch {
+            link?.remove();
+            if (url) URL.revokeObjectURL(url);
+            fileNotice = 'panel.exportError';
+        }
+        updateStatus();
+    });
+    importButton.addEventListener('click', () => configFileInput.click());
+    configFileInput.addEventListener('change', async () => {
+        const file = configFileInput.files?.[0];
+        configFileInput.value = '';
+        if (!file) return;
+        try {
+            if (file.size > MAX_SETTINGS_FILE_BYTES) throw new RangeError('Configuration is too large');
+            const imported = parseSettingsFile(await file.text());
+            clearInvalidControls();
+            commit(imported, 'panel.importSuccess');
+        } catch {
+            fileNotice = 'panel.importError';
+            updateStatus();
+        }
+    });
+    clearButton.addEventListener('click', () => {
+        clearInvalidControls();
+        commit(changePanelSetting(current, hostname, 'initialize'), 'panel.clearSuccess');
     });
 
     function refresh() {
@@ -231,22 +308,21 @@ export function openSettingsPanel({settings, hostname, onChange}) {
         for (const {node, key, values} of messages) node.textContent = t(key, values);
         closeButton.setAttribute('aria-label', t('panel.close'));
         tabList.setAttribute('aria-label', t('panel.sections'));
-        initialize.title = t('panel.initializeHelp');
-        const siteScope = getPanelValue(current, hostname, 'siteThemeOnly');
-        scope.hidden = !siteScope;
-        if (siteScope) scope.textContent = t('panel.scopeSite');
-        for (const [key, control] of controls) {
+        siteEnabled.disabled = !current.enabled;
+        globalRequired.hidden = current.enabled;
+        for (const control of controls) {
             if (control.getAttribute('aria-invalid') === 'true') continue;
-            const value = getPanelValue(current, hostname, key);
+            const {setting: key, scope} = control.dataset;
+            const value = getPanelValue(current, hostname, key, scope);
             if (control.type === 'checkbox') control.checked = value;
             else control.value = value === null ? '' : String(value);
             const field = control.closest('.field');
-            field.classList.toggle('changed', isPanelSettingChanged(current, hostname, key));
+            field.classList.toggle('changed', isPanelSettingChanged(current, hostname, key, scope));
             const output = field.querySelector('output');
             if (output) output.value = `${value}%`;
         }
         for (const group of body.querySelectorAll('[data-condition]')) {
-            group.hidden = group.dataset.condition !== current.automation.mode;
+            group.hidden = group.dataset.condition !== getPanelValue(current, hostname, group.dataset.conditionSetting);
         }
         updateStatus();
     }
@@ -272,6 +348,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
             current = normalized;
             ++revision;
             storageError = false;
+            fileNotice = null;
             for (const control of controls.values()) control.removeAttribute('aria-invalid');
             refresh();
         },

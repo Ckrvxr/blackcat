@@ -13,7 +13,7 @@ test('installer metadata is self-contained and pins its update URL to the releas
     assert.match(metadata, /@downloadURL\s+https:\/\/raw\.githubusercontent\.com\/Ckrvxr\/blackcat\/v0\.1\.0\/dist\/blackcat\.user\.js/);
     assert.match(metadata, /@grant\s+GM_registerMenuCommand/);
     assert.match(metadata, /@grant\s+GM_unregisterMenuCommand/);
-    assert.match(metadata, /网页深色主题/);
+    assert.match(metadata, /Unified Dark Mode support for any sites/);
     assert.doesNotMatch(metadata, /GM_xmlhttpRequest|@connect/);
 });
 

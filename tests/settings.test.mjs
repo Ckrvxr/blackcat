@@ -1,11 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, setSiteOverride, resolveThemeForSite, setSiteTheme, toThemeOptions, resolveAutomationState, isWithinTimeWindow} from '../src/settings.mjs';
+import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, setSiteOverride, resolveSiteThemeMode, resolveThemeForSite, setSiteTheme, setSiteThemeMode, toThemeOptions, resolveAutomationState, isWithinTimeWindow} from '../src/settings.mjs';
 
 test('defaults to an always-dark theme with no configurable scheme palette', () => {
     assert.equal(DEFAULT_SETTINGS.enabled, true);
     assert.equal(DEFAULT_SETTINGS.detectDarkTheme, true);
-    assert.equal(DEFAULT_SETTINGS.styleSystemControls, false);
+    assert.equal(Object.hasOwn(DEFAULT_SETTINGS, 'styleSystemControls'), false);
     assert.equal(DEFAULT_SETTINGS.engine, 'dynamicTheme');
     assert.equal(DEFAULT_SETTINGS.mode, undefined);
     assert.equal(toThemeOptions(DEFAULT_SETTINGS).mode, 1);
@@ -13,8 +13,19 @@ test('defaults to an always-dark theme with no configurable scheme palette', () 
         assert.equal(Object.hasOwn(DEFAULT_SETTINGS, key), false);
         assert.equal(Object.hasOwn(toThemeOptions(DEFAULT_SETTINGS), key), false);
     }
-    assert.equal(DEFAULT_SETTINGS.automation.mode, 'none');
+    assert.equal(DEFAULT_SETTINGS.automation.mode, 'system');
     assert.equal(DEFAULT_SETTINGS.language, 'auto');
+});
+
+test('forces system control styling off without persisting the removed setting', () => {
+    const settings = normalizeSettings({
+        styleSystemControls: true,
+        siteThemes: {'example.com': {styleSystemControls: true}},
+    });
+
+    assert.equal(Object.hasOwn(settings, 'styleSystemControls'), false);
+    assert.deepEqual(settings.siteThemes, {});
+    assert.equal(toThemeOptions(settings).styleSystemControls, false);
 });
 
 test('normalizes saved language preferences', () => {
@@ -36,7 +47,7 @@ test('normalizes persisted values and rejects invalid engine names', () => {
     assert.equal(settings.engine, 'dynamicTheme');
     assert.equal(settings.brightness, 150);
     assert.equal(settings.contrast, 50);
-    assert.equal(settings.automation.mode, 'none');
+    assert.equal(settings.automation.mode, 'system');
 });
 
 test('removes legacy font and text stroke settings from data and engine options', () => {
@@ -70,7 +81,7 @@ test('drops legacy dimmed mode and color overrides from settings and engine opti
         lightSchemeTextColor: '#111111',
         selectionColor: '#abcdef',
         scrollbarColor: '#123',
-        styleSystemControls: false,
+        styleSystemControls: true,
         detectDarkTheme: false,
         automation: {mode: 'system', behavior: 'Scheme'},
     });
@@ -83,7 +94,8 @@ test('drops legacy dimmed mode and color overrides from settings and engine opti
         assert.equal(settings[key], undefined);
         assert.equal(options[key], undefined);
     }
-    assert.equal(settings.styleSystemControls, false);
+    assert.equal(Object.hasOwn(settings, 'styleSystemControls'), false);
+    assert.equal(options.styleSystemControls, false);
     assert.equal(settings.detectDarkTheme, false);
 });
 
@@ -126,17 +138,59 @@ test('site overrides are removed when they match the default policy', () => {
     assert.equal(Object.hasOwn(restored.siteOverrides, 'example.com'), false);
 });
 
-test('site theme overrides apply only to their matching host', () => {
-    const base = normalizeSettings({brightness: 100, engine: 'dynamicTheme'});
-    const local = setSiteTheme(base, 'example.com', true, {brightness: 130, engine: 'svgFilter'});
+test('site style modes copy global values once and retain independent values while following global', () => {
+    const base = normalizeSettings({brightness: 110, contrast: 120, engine: 'dynamicTheme'});
+    const independent = setSiteThemeMode(base, 'example.com', 'independent');
 
-    assert.equal(resolveThemeForSite(local, 'https://example.com/page').brightness, 130);
-    assert.equal(resolveThemeForSite(local, 'https://example.com/page').engine, 'svgFilter');
-    assert.equal(resolveThemeForSite(local, 'https://other.test').brightness, 100);
+    assert.equal(resolveSiteThemeMode(independent, 'https://example.com/page'), 'independent');
+    assert.equal(independent.siteThemes['example.com'].brightness, 110);
+    assert.equal(resolveThemeForSite(independent, 'https://example.com/page').brightness, 110);
 
-    const cleared = setSiteTheme(local, 'example.com', false);
-    assert.equal(Object.hasOwn(cleared.siteThemes, 'example.com'), false);
+    const edited = setSiteTheme(independent, 'example.com', {brightness: 130, engine: 'svgFilter'});
+    assert.equal(resolveThemeForSite(edited, 'https://example.com/page').brightness, 130);
+    assert.equal(resolveThemeForSite(edited, 'https://example.com/page').engine, 'svgFilter');
+    assert.equal(resolveThemeForSite(edited, 'https://other.test').brightness, 110);
 
+    const following = setSiteThemeMode(edited, 'example.com', 'global');
+    assert.equal(resolveSiteThemeMode(following, 'https://example.com/page'), 'global');
+    assert.equal(resolveThemeForSite(following, 'https://example.com/page').brightness, 110);
+    assert.equal(following.siteThemes['example.com'].brightness, 130);
+
+    const globalChanged = normalizeSettings({...following, brightness: 115});
+    const restored = setSiteThemeMode(globalChanged, 'example.com', 'independent');
+    assert.equal(restored.siteThemes['example.com'].brightness, 130);
+    assert.equal(resolveThemeForSite(restored, 'https://example.com/page').brightness, 130);
+    assert.throws(() => setSiteThemeMode(restored, 'example.com', 'unexpected'), /site theme mode/);
+});
+
+test('migrates legacy site themes to independent mode and sanitizes persisted modes', () => {
+    const legacy = normalizeSettings({siteThemes: {'example.com': {brightness: 130}}});
+    assert.equal(legacy.siteThemeModes['example.com'], 'independent');
+
+    const following = normalizeSettings({
+        siteThemes: {'example.com': {brightness: 130}},
+        siteThemeModes: {'example.com': 'global', 'bad host': 'independent', 'other.com': 'invalid'},
+    });
+    assert.equal(following.siteThemeModes['example.com'], 'global');
+    assert.equal(following.siteThemeModes['bad host'], undefined);
+    assert.equal(following.siteThemeModes['other.com'], undefined);
+    assert.equal(following.siteThemes['example.com'].brightness, 130);
+});
+
+test('specific site mode overrides inherited wildcard style mode', () => {
+    const inherited = normalizeSettings({siteThemes: {'*.example.com': {brightness: 90}}});
+    assert.equal(resolveSiteThemeMode(inherited, 'https://news.example.com'), 'independent');
+    assert.equal(resolveThemeForSite(inherited, 'https://news.example.com').brightness, 90);
+
+    const overridden = normalizeSettings({
+        ...inherited,
+        siteThemeModes: {'*.example.com': 'independent', 'news.example.com': 'global'},
+    });
+    assert.equal(resolveSiteThemeMode(overridden, 'https://news.example.com'), 'global');
+    assert.equal(resolveThemeForSite(overridden, 'https://news.example.com').brightness, DEFAULT_SETTINGS.brightness);
+});
+
+test('normalizes legacy site theme values and rejects unrecognized fields', () => {
     const sanitized = normalizeSettings({siteThemes: {'example.com': {brightness: 'bad', engine: 'invalid', injected: true}}});
     const safeTheme = resolveThemeForSite(sanitized, 'https://example.com/');
     assert.equal(safeTheme.brightness, DEFAULT_SETTINGS.brightness);

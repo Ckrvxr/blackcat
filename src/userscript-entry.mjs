@@ -113,11 +113,13 @@ async function start() {
         }
         menuSignature = signature;
 
-        menuIds.push(register(t('menu.site', {
-            status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
-        }), () => {
-            void commit(setSiteOverride(settings, hostname, !resolveSiteEnabled(settings, location.href))).catch(reportSaveError);
-        }));
+        if (settings.enabled) {
+            menuIds.push(register(t('menu.site', {
+                status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
+            }), () => {
+                void commit(setSiteOverride(settings, hostname, !resolveSiteEnabled(settings, location.href))).catch(reportSaveError);
+            }));
+        }
         menuIds.push(register(t('menu.global', {
             status: t(settings.enabled ? 'state.enabled' : 'state.disabled'),
         }), () => {

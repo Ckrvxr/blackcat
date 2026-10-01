@@ -12,10 +12,10 @@ export function createUserscriptMetadata({version, releaseRef}) {
     const base = `https://raw.githubusercontent.com/Ckrvxr/blackcat/${releaseRef}/dist`;
     return [
         '// ==UserScript==',
-        '// @name         Blackcat Dark Reader',
+        '// @name         Blackcat: Dark Reader UserScript Ported Version',
         '// @namespace    https://github.com/Ckrvxr/blackcat',
         '// @version      ' + version,
-        '// @description  Dark Reader page themes / 网页深色主题',
+        '// @description  Unified Dark Mode support for any sites',
         '// @match        *://*/*',
         '// @run-at       document-start',
         '// @grant        GM_getValue',

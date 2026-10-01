@@ -1,17 +1,16 @@
-import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, setSiteTheme, toThemeOptions} from './settings.mjs';
+import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, resolveSiteThemeMode, resolveThemeForSite, setSiteOverride, setSiteTheme, setSiteThemeMode, toThemeOptions} from './settings.mjs';
 
-export const THEME_SETTING_KEYS = Object.freeze(Object.keys(toThemeOptions(DEFAULT_SETTINGS)).filter((key) => key !== 'mode'));
+export const THEME_SETTING_KEYS = Object.freeze(Object.keys(toThemeOptions(DEFAULT_SETTINGS)).filter((key) => key !== 'mode' && key !== 'styleSystemControls'));
 const GLOBAL_KEYS = new Set(['enabled', 'enabledByDefault', 'language']);
 const NESTED_KEYS = new Set(['automation.mode', 'automation.activation', 'automation.deactivation', 'location.latitude', 'location.longitude']);
 
-export function getPanelValue(settings, hostname, key) {
-    if (key === 'siteThemeOnly') return Object.hasOwn(settings.siteThemes, hostname);
+export function getPanelValue(settings, hostname, key, scope = 'global') {
+    if (key === 'siteStyleMode') return resolveSiteThemeMode(settings, `https://${hostname}/`);
     if (key === 'siteEnabled') return resolveSiteEnabled(settings, `https://${hostname}/`);
     if (THEME_SETTING_KEYS.includes(key)) {
-        const theme = getPanelValue(settings, hostname, 'siteThemeOnly')
-            ? resolveThemeForSite(settings, `https://${hostname}/`)
-            : settings;
-        return theme[key];
+        if (scope === 'global') return settings[key];
+        if (scope === 'site') return resolveThemeForSite(settings, `https://${hostname}/`)[key];
+        throw new TypeError(`Unknown theme scope: ${scope}`);
     }
     if (NESTED_KEYS.has(key)) {
         const [group, field] = key.split('.');
@@ -21,17 +20,22 @@ export function getPanelValue(settings, hostname, key) {
     throw new TypeError(`Unknown panel setting: ${key}`);
 }
 
-export function changePanelSetting(settings, hostname, key, value) {
+export function changePanelSetting(settings, hostname, key, value, scope = 'global') {
     const current = normalizeSettings(settings);
     if (key === 'initialize') return normalizeSettings(DEFAULT_SETTINGS);
     if (key === 'siteEnabled') return setSiteOverride(current, hostname, value);
-    if (key === 'siteThemeOnly') {
-        return setSiteTheme(current, hostname, value, toThemeOptions(resolveThemeForSite(current, `https://${hostname}/`)));
-    }
+    if (key === 'siteStyleMode') return setSiteThemeMode(current, hostname, value);
     if (THEME_SETTING_KEYS.includes(key)) {
-        return getPanelValue(current, hostname, 'siteThemeOnly')
-            ? setSiteTheme(current, hostname, true, {...current.siteThemes[hostname], [key]: value})
-            : normalizeSettings({...current, [key]: value});
+        if (scope === 'global') return normalizeSettings({...current, [key]: value});
+        if (scope !== 'site') throw new TypeError(`Unknown theme scope: ${scope}`);
+        if (getPanelValue(current, hostname, 'siteStyleMode') !== 'independent') {
+            throw new TypeError('Site theme settings require independent style mode');
+        }
+        const siteTheme = Object.fromEntries(THEME_SETTING_KEYS.map((themeKey) => [
+            themeKey,
+            themeKey === key ? value : getPanelValue(current, hostname, themeKey, 'site'),
+        ]));
+        return setSiteTheme(current, hostname, siteTheme);
     }
     if (NESTED_KEYS.has(key)) {
         const [group, field] = key.split('.');
@@ -41,8 +45,8 @@ export function changePanelSetting(settings, hostname, key, value) {
     throw new TypeError(`Unknown panel setting: ${key}`);
 }
 
-export function isPanelSettingChanged(settings, hostname, key) {
-    return getPanelValue(settings, hostname, key) !== getPanelValue(DEFAULT_SETTINGS, hostname, key);
+export function isPanelSettingChanged(settings, hostname, key, scope = 'global') {
+    return getPanelValue(settings, hostname, key, scope) !== getPanelValue(DEFAULT_SETTINGS, hostname, key, scope);
 }
 
 // Apply immediately; serialize storage and coalesce pending slider snapshots.

@@ -6,7 +6,7 @@ import {fileURLToPath} from 'node:url';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const buildArgs = process.argv.slice(2);
-const files = ['dist/blackcat.user.js', 'dist/engine.js', 'dist/upstream.json', 'dist/DARK-READER-LICENSE.txt'];
+const installerPath = path.join(projectRoot, 'dist/blackcat.user.js');
 
 function build() {
     const result = spawnSync(process.execPath, ['scripts/build.mjs', ...buildArgs], {
@@ -18,17 +18,12 @@ function build() {
     if (result.status !== 0) {
         throw new Error(`Build failed with exit code ${result.status}`);
     }
-    return new Map(files.map((file) => [
-        file,
-        createHash('sha256').update(readFileSync(path.join(projectRoot, file))).digest('hex'),
-    ]));
+    return createHash('sha256').update(readFileSync(installerPath)).digest('hex');
 }
 
 const first = build();
 const second = build();
-for (const file of files) {
-    if (first.get(file) !== second.get(file)) {
-        throw new Error(`Non-reproducible artifact: ${file} (${first.get(file)} != ${second.get(file)})`);
-    }
+if (first !== second) {
+    throw new Error(`Non-reproducible installer: ${first} != ${second}`);
 }
-console.log('All release artifacts are byte-for-byte reproducible.');
+console.log('The install script is byte-for-byte reproducible.');

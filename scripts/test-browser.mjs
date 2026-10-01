@@ -44,14 +44,14 @@ try {
     const responsive = JSON.parse(await run('--json', 'eval', `(() => {
         const root = document.querySelector('#blackcat-settings-panel').shadowRoot;
         const panel = root.querySelector('[role="dialog"]');
-        for (const name of ['theme', 'site', 'automation', 'other']) {
+        for (const name of ['site', 'global']) {
             root.querySelector('[data-tab="' + name + '"]').click();
             const bounds = panel.getBoundingClientRect();
             const page = root.querySelector('[data-page="' + name + '"]');
             if (bounds.left < 0 || bounds.right > innerWidth || bounds.bottom > innerHeight || panel.scrollWidth > panel.clientWidth || page.scrollWidth > page.clientWidth)
                 throw new Error('Floating panel overflows a narrow viewport: ' + name);
         }
-        return 'Narrow viewport: all four tabs fit';
+        return 'Narrow viewport: both tabs fit';
     })()`));
     if (!responsive.success) throw new Error(responsive.error || 'Responsive test failed');
     console.log(responsive.data.result);

@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Blackcat 系统控件测试页</title>
+    <style>
+        :root { font: 16px/1.5 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #172333; background: #edf1f6; }
+        * { box-sizing: border-box; }
+        body { margin: 0; padding: 32px 18px 56px; background: #edf1f6; color: #172333; }
+        main { width: min(960px, 100%); margin: 0 auto; }
+        header { margin-bottom: 22px; }
+        h1 { margin: 0 0 8px; font-size: clamp(25px, 5vw, 36px); line-height: 1.2; }
+        h2 { margin: 0 0 16px; font-size: 19px; }
+        p { margin: 8px 0; }
+        .intro { max-width: 720px; color: #46566b; }
+        .notice { margin: 18px 0; padding: 14px 16px; border: 1px solid #b8c9dd; border-radius: 12px; background: #e1ecf8; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr)); gap: 18px; }
+        .card { min-width: 0; padding: 20px; border: 1px solid #d1d9e3; border-radius: 16px; background: #fff; box-shadow: 0 8px 24px #1c2a3a12; }
+        .field { display: grid; gap: 6px; margin: 0 0 14px; }
+        .field > span, legend { font-weight: 650; }
+        input, select, textarea, button {
+            max-width: 100%;
+            border: 1px solid #9aa9ba;
+            border-radius: 8px;
+            padding: 9px 11px;
+            background: #fff;
+            color: #172333;
+            font: inherit;
+        }
+        input[type="checkbox"], input[type="radio"], input[type="range"], input[type="color"] { padding: 0; }
+        input[type="checkbox"], input[type="radio"] { width: 18px; height: 18px; accent-color: #2868b2; }
+        input[type="range"] { width: 100%; accent-color: #2868b2; }
+        input[type="color"] { width: 54px; height: 38px; padding: 3px; }
+        input[type="file"] { width: 100%; padding: 7px; }
+        textarea { min-height: 92px; resize: vertical; }
+        select { width: 100%; }
+        button { cursor: pointer; }
+        button:hover { border-color: #2868b2; }
+        button.primary { border-color: #2868b2; background: #2868b2; color: #fff; }
+        .button-row { display: flex; flex-wrap: wrap; gap: 10px; margin: 12px 0; }
+        fieldset { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #c4ceda; border-radius: 10px; }
+        fieldset label { display: inline-flex; align-items: center; gap: 7px; margin: 5px 16px 5px 0; }
+        output, .result { color: #34465d; }
+        .result { min-height: 1.5em; margin-top: 10px; }
+        progress, meter { width: 100%; height: 18px; }
+        details { margin-top: 12px; padding: 10px 12px; border: 1px solid #c4ceda; border-radius: 10px; background: #f7f9fc; }
+        summary { cursor: pointer; font-weight: 650; }
+        dialog { width: min(420px, calc(100% - 32px)); border: 1px solid #9aa9ba; border-radius: 14px; padding: 22px; color: #172333; background: #fff; box-shadow: 0 18px 60px #0004; }
+        dialog::backdrop { background: #14203377; }
+        code { padding: 2px 5px; border-radius: 5px; background: #e8edf3; }
+        @media (max-width: 520px) { body { padding: 22px 12px 40px; } .card { padding: 16px; } }
+    </style>
+</head>
+<body>
+<main>
+    <header>
+        <h1>系统控件测试页</h1>
+        <p class="intro">这是一张本地测试页面，包含常见网页原生控件。页面故意使用浅色背景，方便检查 Blackcat 深色主题下各类控件的可读性和交互状态。</p>
+        <div class="notice"><strong>测试方法：</strong>启用 Blackcat 的深色主题，检查输入框、下拉框、按钮、对话框等控件是否清晰易用。滑块可直接拖动，其他控件也可正常交互。</div>
+    </header>
+
+    <div class="grid">
+        <section class="card" aria-labelledby="inputs-title">
+            <h2 id="inputs-title">输入与选择</h2>
+            <label class="field"><span>单行文本</span><input type="text" placeholder="输入一些文字" value="Blackcat test"></label>
+            <label class="field"><span>搜索框</span><input type="search" placeholder="搜索"></label>
+            <label class="field"><span>电子邮件</span><input type="email" placeholder="name@example.com" value="cat@example.com"></label>
+            <label class="field"><span>密码</span><input type="password" value="dark-theme"></label>
+            <label class="field"><span>数字</span><input type="number" min="0" max="100" value="42"></label>
+            <label class="field"><span>下拉菜单</span>
+                <select>
+                    <option>动态主题</option>
+                    <option>滤镜</option>
+                    <option>增强滤镜（SVG）</option>
+                    <option>静态主题</option>
+                </select>
+            </label>
+            <label class="field"><span>多行文本</span><textarea placeholder="输入多行文字">原生 textarea 控件</textarea></label>
+            <label class="field"><span>日期</span><input type="date" value="2026-10-01"></label>
+            <label class="field"><span>选择文件</span><input type="file"></label>
+        </section>
+
+        <section class="card" aria-labelledby="toggles-title">
+            <h2 id="toggles-title">按钮与其他控件</h2>
+            <fieldset>
+                <legend>复选框</legend>
+                <label><input type="checkbox" checked> 启用选项</label>
+                <label><input type="checkbox"> 备用选项</label>
+            </fieldset>
+            <fieldset>
+                <legend>单选按钮</legend>
+                <label><input type="radio" name="theme" checked> 深色</label>
+                <label><input type="radio" name="theme"> 浅色</label>
+            </fieldset>
+            <label class="field"><span>滑块：<output id="range-value">50</output></span>
+                <input id="range" type="range" min="0" max="100" value="50">
+            </label>
+            <label class="field"><span>颜色选择器</span><input id="color" type="color" value="#2868b2"></label>
+            <div class="field"><span>普通按钮与强调按钮</span>
+                <div class="button-row"><button type="button">普通按钮</button><button class="primary" type="button">强调按钮</button></div>
+            </div>
+            <div class="field"><span>进度条与仪表</span><progress value="68" max="100">68%</progress><meter min="0" max="100" value="42">42%</meter></div>
+            <details><summary>可展开区域</summary><p>原生 details / summary 控件，用于检查展开状态下的配色。</p></details>
+            <div class="button-row"><button id="open-dialog" type="button">打开原生对话框</button></div>
+            <p id="result" class="result" role="status" aria-live="polite"></p>
+        </section>
+    </div>
+</main>
+
+<dialog id="demo-dialog" aria-labelledby="dialog-title">
+    <h2 id="dialog-title">原生对话框</h2>
+    <p>检查对话框的背景、文字、边框和遮罩配色。</p>
+    <button id="close-dialog" type="button">关闭</button>
+</dialog>
+<script>
+    const range = document.querySelector('#range');
+    range.addEventListener('input', () => { document.querySelector('#range-value').value = range.value; });
+    document.querySelector('#open-dialog').addEventListener('click', () => document.querySelector('#demo-dialog').showModal());
+    document.querySelector('#close-dialog').addEventListener('click', () => document.querySelector('#demo-dialog').close());
+    document.querySelector('#color').addEventListener('input', (event) => {
+        document.querySelector('#result').textContent = `已选择颜色：${event.currentTarget.value}`;
+    });
+</script>
+</body>
+</html>

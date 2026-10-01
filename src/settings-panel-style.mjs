@@ -16,12 +16,15 @@ export const PANEL_STYLE = `
     button { cursor: pointer; }
     .close { margin-left: auto; width: 32px; height: 32px; padding: 0; font-size: 23px; border: 0; border-radius: 8px; background: transparent; color: #a8b4c5; }
     .close:hover { color: #fff; background: #2a303b; }
-    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 0 18px 14px; padding: 4px; border-radius: 10px; background: #10141b; }
-    .tab { min-width: 0; padding: 7px 2px; font-size: 13px; border: 0; border-radius: 7px; background: transparent; color: #a8b4c5; }
+    .tabs { display: grid; grid-template-columns: repeat(2, minmax(max-content, 1fr)); gap: 4px; margin: 0 18px 14px; padding: 4px; border-radius: 10px; background: #10141b; }
+    .tab { min-width: 0; padding: 7px 2px; font-size: 13px; white-space: nowrap; border: 0; border-radius: 7px; background: transparent; color: #a8b4c5; }
     .tab[aria-selected="true"] { background: #2a3546; color: #d8e6ff; }
     .body { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 18px 12px; scrollbar-width: thin; scrollbar-color: #465163 transparent; }
-    .scope, .site-name { padding: 9px 12px; border: 1px solid #303a49; border-radius: 9px; background: #202733; color: #b4d0ff; font-size: 12px; margin: 0 0 12px; overflow-wrap: anywhere; }
-    .site-name { color: #e9edf2; font-size: 14px; }
+    .settings-section + .settings-section { margin-top: 14px; }
+    .section-title { margin: 0 0 4px; color: #b4d0ff; font-size: 14px; line-height: 1.4; font-weight: 600; }
+    .site-name { margin: 0; }
+    .site-hostname { min-width: 0; max-width: 65%; color: #a8b4c5; font-size: 13px; text-align: right; overflow-wrap: anywhere; }
+    .subsection-title { margin: 12px 0 4px; color: #b4d0ff; font-size: 13px; font-weight: 600; }
     .field { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0; padding: 9px 0; border-bottom: 1px solid #ffffff0d; }
     .caption { font-weight: 400; color: #dbe2ec; min-width: 0; }
     .field.changed > .caption { font-weight: 700; color: #fff; }
@@ -38,15 +41,22 @@ export const PANEL_STYLE = `
         border-radius: 50%; background: #c1cad6; transition: transform .12s; }
     input[type="checkbox"]:checked { background: #9dc2ff; border-color: #9dc2ff; }
     input[type="checkbox"]:checked::before { background: #17263b; transform: translateX(14px); }
+    input[type="checkbox"]:disabled { cursor: not-allowed; opacity: .55; }
     .hint { margin: 8px 0 12px; color: #a8b4c5; font-size: 12px; line-height: 1.6; }
-    .other-action { display: flex; justify-content: flex-end; margin-top: 12px; padding-top: 12px; border-top: 1px solid #ffffff0d; }
-    .initialize { padding: 6px 10px; border: 1px solid #414b5b; border-radius: 7px; background: transparent; font-size: 12px; color: #c4cfdf; }
-    .initialize:hover { background: #29313e; color: #fff; }
+    .config-actions { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 12px; }
+    .config-label { flex: 0 0 auto; color: #dbe2ec; font-size: 13px; }
+    .config-buttons { display: flex; align-items: center; gap: 6px; }
+    .config-button { padding: 6px 8px; border: 1px solid #414b5b; border-radius: 7px; background: transparent; font-size: 12px; color: #c4cfdf; white-space: nowrap; }
+    .config-button:hover { background: #29313e; color: #fff; }
+    .config-warning { margin: 5px 0 0; color: #ffb4b4; font-size: 11px; line-height: 1.5; }
     .status { margin: 0; padding: 10px 18px; font-size: 12px; color: #ffb4b4; background: #42282e; }
     :is(button, input, select):focus-visible { outline: 2px solid #9dc2ff; outline-offset: 3px; }
     [aria-invalid="true"] { border-color: #ffa8a8 !important; }
     @media (max-width: 420px) { :host { top: 8px !important; right: 8px !important; width: calc(100vw - 16px) !important; }
         .panel { max-height: calc(100dvh - 16px); border-radius: 14px; }
-        header { padding-top: 14px; } }
+        header { padding-top: 14px; }
+        .config-actions { gap: 6px; }
+        .config-buttons { gap: 4px; }
+        .config-button { padding: 5px 6px; font-size: 11px; } }
     @media (prefers-reduced-motion: reduce) { input[type="checkbox"]::before { transition: none; } }
 `;

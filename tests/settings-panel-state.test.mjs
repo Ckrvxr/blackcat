@@ -15,26 +15,33 @@ test('changing one field preserves other settings and other sites', () => {
     assert.equal(initial.brightness, 100);
 });
 
-test('all engine options remain editable in global and site scopes', () => {
+test('all engine options remain editable in global and independent site scopes', () => {
     for (const key of THEME_SETTING_KEYS) {
         const value = toThemeOptions(DEFAULT_SETTINGS)[key];
         const global = changePanelSetting(normalizeSettings({}), host, key, value);
         assert.equal(getPanelValue(global, host, key), value);
-        const scoped = changePanelSetting(global, host, 'siteThemeOnly', true);
-        const next = changePanelSetting(scoped, host, key, value);
+        const independent = changePanelSetting(global, host, 'siteStyleMode', 'independent');
+        const next = changePanelSetting(independent, host, key, value, 'site');
         assert.equal(next.siteThemes[host][key], value);
     }
 });
 
-test('site theme toggle copies the current appearance and never overwrites global values', () => {
+test('site styles follow global or restore saved independent values without losing them', () => {
     const initial = normalizeSettings({brightness: 115, siteThemes: {'other.com': {contrast: 120}}});
-    const scoped = changePanelSetting(initial, host, 'siteThemeOnly', true);
-    const changed = changePanelSetting(scoped, host, 'brightness', 80);
+    const independent = changePanelSetting(initial, host, 'siteStyleMode', 'independent');
+    const changed = changePanelSetting(independent, host, 'brightness', 80, 'site');
     assert.equal(changed.brightness, 115);
-    assert.equal(getPanelValue(changed, host, 'brightness'), 80);
-    const unscoped = changePanelSetting(changed, host, 'siteThemeOnly', false);
-    assert.equal(getPanelValue(unscoped, host, 'brightness'), 115);
-    assert.deepEqual(unscoped.siteThemes, initial.siteThemes);
+    assert.equal(getPanelValue(changed, host, 'brightness', 'site'), 80);
+
+    const following = changePanelSetting(changed, host, 'siteStyleMode', 'global');
+    assert.equal(getPanelValue(following, host, 'brightness', 'site'), 115);
+    assert.equal(following.siteThemes[host].brightness, 80);
+    assert.equal(following.siteThemes['other.com'].contrast, 120);
+
+    const globalChanged = changePanelSetting(following, host, 'brightness', 125);
+    const restored = changePanelSetting(globalChanged, host, 'siteStyleMode', 'independent');
+    assert.equal(getPanelValue(restored, host, 'brightness', 'site'), 80);
+    assert.equal(getPanelValue(restored, host, 'brightness'), 125);
 });
 
 test('automation, coordinates, language and enablement change independently', () => {
@@ -51,11 +58,11 @@ test('bold markers compare global and site values against factory defaults', () 
     let current = normalizeSettings({});
     assert.equal(isPanelSettingChanged(current, host, 'brightness'), false);
     current = changePanelSetting(current, host, 'brightness', 110);
-    current = changePanelSetting(current, host, 'siteThemeOnly', true);
-    assert.equal(isPanelSettingChanged(current, host, 'brightness'), true);
-    current = changePanelSetting(current, host, 'brightness', 100);
-    assert.equal(isPanelSettingChanged(current, host, 'brightness'), false);
-    assert.equal(isPanelSettingChanged(current, host, 'siteThemeOnly'), true);
+    current = changePanelSetting(current, host, 'siteStyleMode', 'independent');
+    assert.equal(isPanelSettingChanged(current, host, 'brightness', 'site'), true);
+    current = changePanelSetting(current, host, 'brightness', 100, 'site');
+    assert.equal(isPanelSettingChanged(current, host, 'brightness', 'site'), false);
+    assert.equal(isPanelSettingChanged(current, host, 'siteStyleMode'), true);
     assert.equal(isPanelSettingChanged(normalizeSettings({location: {latitude: ''}}), host, 'location.latitude'), false);
 });
 
@@ -76,7 +83,7 @@ test('site enablement can override an inherited wildcard rule', () => {
 });
 
 test('fixed dark mode and removed palette fields are not panel settings', () => {
-    const removedSettings = ['mode', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor', 'automation.behavior'];
+    const removedSettings = ['mode', 'styleSystemControls', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor', 'automation.behavior'];
     for (const key of removedSettings) {
         assert.equal(THEME_SETTING_KEYS.includes(key), false);
         assert.throws(() => changePanelSetting(normalizeSettings({}), host, key, 'value'), TypeError);
@@ -84,8 +91,11 @@ test('fixed dark mode and removed palette fields are not panel settings', () => 
     assert.equal(toThemeOptions(DEFAULT_SETTINGS).mode, 1);
 });
 
-test('unknown panel fields are rejected instead of becoming stored data', () => {
-    assert.throws(() => changePanelSetting(normalizeSettings({}), host, '__proto__', {}), TypeError);
+test('unknown panel fields and invalid theme modes are rejected instead of becoming stored data', () => {
+    const initial = normalizeSettings({});
+    assert.throws(() => changePanelSetting(initial, host, '__proto__', {}), TypeError);
+    assert.throws(() => changePanelSetting(initial, host, 'siteStyleMode', 'unexpected'), /site theme mode/);
+    assert.throws(() => changePanelSetting(initial, host, 'brightness', 120, 'site'), /require independent style mode/);
 });
 
 test('changes apply synchronously and rapid writes persist the newest snapshot', async () => {

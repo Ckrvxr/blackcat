@@ -12,13 +12,13 @@ export async function runUserscriptPanelBrowserTests() {
     };
     const open = () => Object.entries(globalThis.blackcatCommands).find(([label]) => label.startsWith('⚙️'))[1]();
     const root = () => document.querySelector('#blackcat-settings-panel').shadowRoot;
-    const control = (key) => root().querySelector(`[data-setting="${key}"]`);
+    const control = (key, scope = 'global') => root().querySelector(`[data-setting="${key}"][data-scope="${scope}"]`);
     const renderingStyles = () => [...document.querySelectorAll('style.darkreader')]
         .map((style) => style.textContent)
         .join('\n');
     const expectedMode = (engine) => engine === 'dynamicTheme' ? 'dynamic' : engine === 'staticTheme' ? 'static' : 'filter';
-    const change = (key, value) => {
-        const input = control(key);
+    const change = (key, value, scope = 'global') => {
+        const input = control(key, scope);
         if (input.type === 'checkbox') input.checked = value;
         else input.value = String(value);
         const inputEvent = ['range', 'text', 'number'].includes(input.type) ? 'input' : 'change';
@@ -26,10 +26,14 @@ export async function runUserscriptPanelBrowserTests() {
         if (input.type === 'range') input.dispatchEvent(new Event('change', {bubbles: true}));
     };
     await waitFor(() => Object.keys(globalThis.blackcatCommands || {}).length === 3);
-    await waitFor(() => globalThis.BlackcatDarkReaderEngine.isEnabled());
+    const initialSystemDark = matchMedia('(prefers-color-scheme: dark)').matches;
+    await waitFor(() => globalThis.BlackcatDarkReaderEngine.isEnabled() === initialSystemDark);
     assert(!document.getElementById('blackcat-prepaint'), 'Userscript must not inject a temporary background');
-    results.push('self-contained engine initializes normally');
+    results.push('system-following default initializes the engine');
     open();
+    assert(control('automation.mode').value === 'system', 'Default automation should follow the system preference');
+    change('automation.mode', 'none');
+    await waitFor(() => globalThis.blackcatStoredSettings()?.automation.mode === 'none' && globalThis.BlackcatDarkReaderEngine.isEnabled());
     const initialSettingsCommand = Object.entries(globalThis.blackcatCommands).find(([label]) => label.startsWith('⚙️'))[1];
     change('detectDarkTheme', false);
     await waitFor(() => globalThis.blackcatStoredSettings()?.detectDarkTheme === false);
@@ -66,7 +70,8 @@ export async function runUserscriptPanelBrowserTests() {
     const beforeLanguage = renderingStyles();
     change('language', 'zh-CN');
     assert(root().querySelector('[role="dialog"]').lang === 'zh-CN', 'Open window must translate immediately');
-    assert(Object.keys(globalThis.blackcatCommands).includes('⚙️ 更多设置'), 'Menu labels must translate immediately');
+    assert(root().querySelector('.subtitle').textContent === '所有更改将即时生效并保存', 'Subtitle must explain that changes apply and save immediately');
+    assert(Object.keys(globalThis.blackcatCommands).includes('⚙️ 所有设置'), 'Menu labels must translate immediately');
     assert(Object.keys(globalThis.blackcatCommands).length === 3, 'Menu must contain only site, global and settings commands');
     assert(renderingStyles() === beforeLanguage, 'UI-only changes must not rebuild the rendering engine');
     await waitFor(() => globalThis.blackcatStoredSettings().language === 'zh-CN');
@@ -75,13 +80,24 @@ export async function runUserscriptPanelBrowserTests() {
     assert(control('brightness').value === '130' && control('language').value === 'zh-CN', 'Reopening must retain changes');
     results.push('live translation, unchanged menu count and reopen persistence');
 
-    change('siteThemeOnly', true);
-    change('brightness', 80);
+    root().querySelector('[data-tab="site"]').click();
+    const globalAppearance = renderingStyles();
+    change('siteStyleMode', 'independent');
+    await waitFor(() => globalThis.blackcatStoredSettings().siteThemeModes[location.hostname] === 'independent');
+    change('brightness', 80, 'site');
     await waitFor(() => globalThis.blackcatStoredSettings().siteThemes[location.hostname]?.brightness === 80);
-    assert(globalThis.blackcatStoredSettings().brightness === 130, 'Site theme must leave the global value alone');
-    change('siteThemeOnly', false);
-    assert(control('brightness').value === '130', 'Global theme should return instantly');
-    results.push('site theme changes apply and persist independently');
+    assert(globalThis.blackcatStoredSettings().brightness === 130, 'Site style must leave the global value alone');
+    await waitFor(() => renderingStyles() !== globalAppearance);
+    const independentAppearance = renderingStyles();
+    change('siteStyleMode', 'global');
+    await waitFor(() => globalThis.blackcatStoredSettings().siteThemeModes[location.hostname] === 'global');
+    await waitFor(() => renderingStyles() === globalAppearance);
+    assert(globalThis.blackcatStoredSettings().siteThemes[location.hostname].brightness === 80, 'Following global must retain the independent style');
+    change('siteStyleMode', 'independent');
+    await waitFor(() => control('brightness', 'site').value === '80');
+    await waitFor(() => renderingStyles() === independentAppearance);
+    assert(control('brightness').value === '130', 'Global style controls must retain their own values');
+    results.push('site style mode changes preserve and restore independent values');
 
     change('automation.mode', 'system');
     const systemDark = matchMedia('(prefers-color-scheme: dark)').matches;
@@ -103,9 +119,15 @@ export async function runUserscriptPanelBrowserTests() {
     globalCommand()();
     assert(!globalThis.BlackcatDarkReaderEngine.isEnabled(), 'The existing global menu must still disable the engine immediately');
     await waitFor(() => globalThis.blackcatStoredSettings().enabled === false);
+    await waitFor(() => Object.keys(globalThis.blackcatCommands).length === 2);
+    assert(!Object.keys(globalThis.blackcatCommands).some((label) => label.startsWith('🌐')), 'Site toggle menu must disappear when global mode is off');
+    assert(control('siteEnabled').disabled && !root().querySelector('[data-global-required]').hidden, 'The open panel should explain that global mode is required');
     globalCommand()();
     await waitFor(() => globalThis.blackcatStoredSettings().enabled === true && globalThis.BlackcatDarkReaderEngine.isEnabled());
-    results.push('global enablement remains available through the existing menu');
+    await waitFor(() => Object.keys(globalThis.blackcatCommands).length === 3);
+    assert(Object.keys(globalThis.blackcatCommands).some((label) => label.startsWith('🌐')), 'Site toggle menu should return when global mode is on');
+    assert(!control('siteEnabled').disabled && root().querySelector('[data-global-required]').hidden, 'Re-enabling globally should clear the site guidance');
+    results.push('global switch controls site menu visibility and site settings');
 
     globalThis.blackcatStorageFailure = true;
     change('language', 'en');
@@ -119,13 +141,13 @@ export async function runUserscriptPanelBrowserTests() {
     assert(control('contrast').value === '120' && root().querySelector('[role="dialog"]').lang === 'en', 'Remote settings must refresh open controls');
     globalThis.blackcatRemoteSettings(normalizeSettings({language: 'en', siteOverrides: {'other.com': false}, siteThemes: {'other.com': {brightness: 85}}}));
     change('brightness', 125);
-    root().querySelector('[data-tab="other"]').click();
-    assert(root().querySelector('[data-page="other"] [data-action="initialize"]'), 'Initialize should be in Other');
-    root().querySelector('[data-action="initialize"]').click();
+    root().querySelector('[data-tab="global"]').click();
+    assert(root().querySelector('[data-page="global"] [data-action="clear"]'), 'Clear should be in Global settings');
+    root().querySelector('[data-action="clear"]').click();
     await waitFor(() => JSON.stringify(globalThis.blackcatStoredSettings()) === JSON.stringify(normalizeSettings(DEFAULT_SETTINGS)));
-    assert(root().querySelectorAll('.field.changed').length === 0, 'Initialize should clear all difference markers');
-    assert(Object.keys(globalThis.blackcatCommands).length === 3, 'Initialize should preserve the three-item menu');
-    results.push('remote updates and full initialization after pending changes');
+    assert(root().querySelectorAll('.field.changed').length === 0, 'Clear should remove all difference markers');
+    assert(Object.keys(globalThis.blackcatCommands).length === 3, 'Clear should preserve the three-item menu');
+    results.push('remote updates and full clear after pending changes');
 
     return results;
 }

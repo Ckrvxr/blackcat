@@ -7,16 +7,16 @@ export const DEFAULT_SETTINGS = Object.freeze({
     contrast: 100,
     grayscale: 0,
     sepia: 0,
-    styleSystemControls: false,
     detectDarkTheme: true,
     automation: Object.freeze({
-        mode: 'none',
+        mode: 'system',
         activation: '18:00',
         deactivation: '09:00',
     }),
     location: Object.freeze({latitude: null, longitude: null}),
     siteOverrides: Object.freeze({}),
     siteThemes: Object.freeze({}),
+    siteThemeModes: Object.freeze({}),
 });
 
 const ENGINES = new Set(['dynamicTheme', 'cssFilter', 'svgFilter', 'staticTheme']);
@@ -29,7 +29,7 @@ const THEME_RANGES = Object.freeze({
     sepia: [0, 100],
 });
 const HOST_PATTERN = /^(?:\*\.)?(?:[a-z0-9.-]+|\[[a-f0-9:.]+\])$/i;
-const THEME_KEYS = [...Object.keys(THEME_RANGES), 'engine', 'styleSystemControls', 'detectDarkTheme'];
+const THEME_KEYS = [...Object.keys(THEME_RANGES), 'engine', 'detectDarkTheme'];
 
 function finiteNumber(value, fallback, min, max) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -81,9 +81,33 @@ function normalizeSiteThemes(value) {
         .filter(([, theme]) => Object.keys(theme).length > 0));
 }
 
+function normalizeSiteThemeModes(value, siteThemes, inferLegacyModes) {
+    const modes = value && typeof value === 'object' && !Array.isArray(value)
+        ? Object.fromEntries(Object.entries(value)
+            .filter(([host, mode]) => validHostPattern(host) && ['global', 'independent'].includes(mode))
+            .map(([host, mode]) => [host.toLowerCase(), mode]))
+        : {};
+    if (inferLegacyModes) {
+        for (const host of Object.keys(siteThemes)) {
+            if (!Object.hasOwn(modes, host)) modes[host] = 'independent';
+        }
+    }
+    return modes;
+}
+
+function resolveHostRecord(records, hostname) {
+    if (Object.hasOwn(records, hostname)) return records[hostname];
+    const wildcard = Object.keys(records)
+        .filter((host) => host.startsWith('*.') && hostname.endsWith(host.slice(1)))
+        .sort((a, b) => b.length - a.length)[0];
+    return wildcard ? records[wildcard] : undefined;
+}
+
 export function normalizeSettings(value) {
     const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const automation = input.automation && typeof input.automation === 'object' ? input.automation : {};
+    const siteThemes = normalizeSiteThemes(input.siteThemes);
+    const siteThemeModes = normalizeSiteThemeModes(input.siteThemeModes, siteThemes, !Object.hasOwn(input, 'siteThemeModes'));
     return {
         ...DEFAULT_SETTINGS,
         ...Object.fromEntries(Object.entries(THEME_RANGES).map(([key, [min, max]]) => [
@@ -94,9 +118,6 @@ export function normalizeSettings(value) {
         enabledByDefault: typeof input.enabledByDefault === 'boolean' ? input.enabledByDefault : DEFAULT_SETTINGS.enabledByDefault,
         language: LANGUAGE_PREFERENCES.has(input.language) ? input.language : DEFAULT_SETTINGS.language,
         engine: ENGINES.has(input.engine) ? input.engine : DEFAULT_SETTINGS.engine,
-        styleSystemControls: typeof input.styleSystemControls === 'boolean'
-            ? input.styleSystemControls
-            : DEFAULT_SETTINGS.styleSystemControls,
         detectDarkTheme: typeof input.detectDarkTheme === 'boolean' ? input.detectDarkTheme : DEFAULT_SETTINGS.detectDarkTheme,
         automation: {
             mode: AUTOMATION_MODES.has(automation.mode) ? automation.mode : DEFAULT_SETTINGS.automation.mode,
@@ -108,7 +129,8 @@ export function normalizeSettings(value) {
             longitude: normalizeCoordinate(input.location?.longitude, -180, 180),
         },
         siteOverrides: normalizeSiteOverrides(input.siteOverrides),
-        siteThemes: normalizeSiteThemes(input.siteThemes),
+        siteThemes,
+        siteThemeModes,
     };
 }
 
@@ -121,7 +143,7 @@ export function toThemeOptions(value) {
         contrast: settings.contrast,
         grayscale: settings.grayscale,
         sepia: settings.sepia,
-        styleSystemControls: settings.styleSystemControls,
+        styleSystemControls: false,
         detectDarkTheme: settings.detectDarkTheme,
     };
 }
@@ -144,6 +166,17 @@ export function resolveSiteEnabled(settings, href) {
     return wildcard ? settings.siteOverrides[wildcard] : settings.enabledByDefault;
 }
 
+export function resolveSiteThemeMode(settings, href) {
+    const current = normalizeSettings(settings);
+    let hostname;
+    try {
+        hostname = new URL(href).hostname.toLowerCase();
+    } catch {
+        return 'global';
+    }
+    return resolveHostRecord(current.siteThemeModes, hostname) || 'global';
+}
+
 export function resolveThemeForSite(settings, href) {
     const current = normalizeSettings(settings);
     let hostname;
@@ -152,31 +185,44 @@ export function resolveThemeForSite(settings, href) {
     } catch {
         return current;
     }
-    if (Object.hasOwn(current.siteThemes, hostname)) {
-        return {...current, ...current.siteThemes[hostname]};
-    }
-    const wildcard = Object.keys(current.siteThemes)
-        .filter((host) => host.startsWith('*.') && hostname.endsWith(host.slice(1)))
-        .sort((a, b) => b.length - a.length)[0];
-    return wildcard ? {...current, ...current.siteThemes[wildcard]} : current;
+    if (resolveHostRecord(current.siteThemeModes, hostname) !== 'independent') return current;
+    const theme = resolveHostRecord(current.siteThemes, hostname);
+    return theme ? {...current, ...theme} : current;
 }
 
-export function setSiteTheme(settings, hostname, enabled, themePatch = {}) {
+export function setSiteTheme(settings, hostname, themePatch) {
     if (typeof hostname !== 'string' || !validHostPattern(hostname) || hostname.startsWith('*.')) {
         throw new TypeError('hostname must be a valid exact host name');
-    }
-    if (typeof enabled !== 'boolean') {
-        throw new TypeError('enabled must be a boolean');
     }
     const current = normalizeSettings(settings);
     const siteThemes = {...current.siteThemes};
     const key = hostname.toLowerCase();
-    if (enabled) {
-        siteThemes[key] = normalizeThemePatch(themePatch);
-    } else {
-        delete siteThemes[key];
-    }
+    const theme = normalizeThemePatch(themePatch);
+    if (Object.keys(theme).length > 0) siteThemes[key] = theme;
+    else delete siteThemes[key];
     return normalizeSettings({...current, siteThemes});
+}
+
+export function setSiteThemeMode(settings, hostname, mode) {
+    if (typeof hostname !== 'string' || !validHostPattern(hostname) || hostname.startsWith('*.')) {
+        throw new TypeError('hostname must be a valid exact host name');
+    }
+    if (!['global', 'independent'].includes(mode)) {
+        throw new TypeError('site theme mode must be global or independent');
+    }
+    const current = normalizeSettings(settings);
+    const key = hostname.toLowerCase();
+    const siteThemes = {...current.siteThemes};
+    if (mode === 'independent' && !Object.hasOwn(siteThemes, key)) {
+        const inheritedTheme = resolveHostRecord(siteThemes, key);
+        const source = inheritedTheme ? {...current, ...inheritedTheme} : current;
+        siteThemes[key] = Object.fromEntries(THEME_KEYS.map((themeKey) => [themeKey, source[themeKey]]));
+    }
+    return normalizeSettings({
+        ...current,
+        siteThemes,
+        siteThemeModes: {...current.siteThemeModes, [key]: mode},
+    });
 }
 
 export function setSiteOverride(settings, hostname, enabled) {

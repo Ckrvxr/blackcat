@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+  <title id="title">Blackcat</title>
+  <desc id="desc">An abstract black cat crescent with a four-point star on a periwinkle tile.</desc>
+  <rect width="128" height="128" rx="30" fill="#a6b4fa"/>
+  <path d="M30 26 50 40Q64 34 78 40L98 26V56C91 50 83 48 75 51 60 55 53 71 58 85 62 96 73 102 85 100 79 105 72 108 64 108 42 108 26 92 26 70 26 62 27 55 30 49Z" fill="#171a27"/>
+  <path d="m89 64 4 10 10 4-10 4-4 10-4-10-10-4 10-4Z" fill="#171a27"/>
+</svg>
