@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Blackcat Dark Reader
 // @namespace    https://github.com/Ckrvxr/blackcat
-// @version      0.1.0-beta.5
+// @version      0.1.0-beta.6
 // @description  Dark Reader page themes / 网页深色主题
 // @match        *://*/*
 // @run-at       document-start
@@ -10,9 +10,9 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_addValueChangeListener
-// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.5/dist/engine.js
-// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.5/dist/blackcat.user.js
-// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.5/dist/blackcat.user.js
+// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.6/dist/engine.js
+// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.6/dist/blackcat.user.js
+// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.6/dist/blackcat.user.js
 // ==/UserScript==
 (function () {
     'use strict';
@@ -26,9 +26,6 @@
         contrast: 100,
         grayscale: 0,
         sepia: 0,
-        useFont: false,
-        fontFamily: 'system-ui, sans-serif',
-        textStroke: 0,
         darkSchemeBackgroundColor: '#181a1b',
         darkSchemeTextColor: '#e8e6e3',
         lightSchemeBackgroundColor: '#dcdad7',
@@ -57,12 +54,11 @@
         contrast: [50, 150],
         grayscale: [0, 100],
         sepia: [0, 100],
-        textStroke: [0, 1],
     });
     const HOST_PATTERN = /^(?:\*\.)?(?:[a-z0-9.-]+|\[[a-f0-9:.]+\])$/i;
     const THEME_KEYS = [
         ...Object.keys(THEME_RANGES),
-        'engine', 'useFont', 'fontFamily', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
+        'engine', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
         'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'scrollbarColor', 'selectionColor',
         'styleSystemControls', 'detectDarkTheme',
     ];
@@ -113,7 +109,8 @@
         if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
         return Object.fromEntries(Object.entries(value)
             .filter(([host, theme]) => validHostPattern(host) && Boolean(theme) && typeof theme === 'object' && !Array.isArray(theme))
-            .map(([host, theme]) => [host.toLowerCase(), normalizeThemePatch(theme)]));
+            .map(([host, theme]) => [host.toLowerCase(), normalizeThemePatch(theme)])
+            .filter(([, theme]) => Object.keys(theme).length > 0));
     }
 
     function validColor(value, fallback) {
@@ -125,12 +122,6 @@
             return value;
         }
         return validColor(value, fallback);
-    }
-
-    function normalizeFontFamily(value) {
-        return typeof value === 'string' && value.length <= 200 && /^[\p{L}\p{N}\s,_'"-]+$/u.test(value)
-            ? value
-            : DEFAULT_SETTINGS.fontFamily;
     }
 
     function normalizeSettings(value) {
@@ -147,8 +138,6 @@
             enabled: typeof input.enabled === 'boolean' ? input.enabled : DEFAULT_SETTINGS.enabled,
             enabledByDefault: typeof input.enabledByDefault === 'boolean' ? input.enabledByDefault : DEFAULT_SETTINGS.enabledByDefault,
             engine: ENGINES.has(input.engine) ? input.engine : DEFAULT_SETTINGS.engine,
-            useFont: typeof input.useFont === 'boolean' ? input.useFont : DEFAULT_SETTINGS.useFont,
-            fontFamily: normalizeFontFamily(input.fontFamily),
             darkSchemeBackgroundColor: validColor(input.darkSchemeBackgroundColor, DEFAULT_SETTINGS.darkSchemeBackgroundColor),
             darkSchemeTextColor: validColor(input.darkSchemeTextColor, DEFAULT_SETTINGS.darkSchemeTextColor),
             lightSchemeBackgroundColor: validColor(input.lightSchemeBackgroundColor, DEFAULT_SETTINGS.lightSchemeBackgroundColor),
@@ -183,9 +172,6 @@
             contrast: settings.contrast,
             grayscale: settings.grayscale,
             sepia: settings.sepia,
-            useFont: settings.useFont,
-            fontFamily: settings.fontFamily,
-            textStroke: settings.textStroke,
             darkSchemeBackgroundColor: settings.darkSchemeBackgroundColor,
             darkSchemeTextColor: settings.darkSchemeTextColor,
             lightSchemeBackgroundColor: settings.lightSchemeBackgroundColor,
@@ -310,7 +296,6 @@
         'menu.settings': '⚙️ More settings',
         'menu.site': '🌐 This site: {status}',
         'menu.global': '🌍 Global: {status}',
-        'menu.engine': '🎨 Theme engine: {engine}',
         'menu.colorMode': '🌗 Color mode: {mode}',
         'engine.dynamic': 'Dynamic theme',
         'engine.filter': 'Filter',
@@ -335,9 +320,6 @@
         'panel.contrast': 'Contrast',
         'panel.grayscale': 'Grayscale',
         'panel.sepia': 'Sepia',
-        'panel.textStroke': 'Text stroke',
-        'panel.useFont': 'Use custom font',
-        'panel.fontFamily': 'Font family',
         'panel.systemControls': 'Style system controls',
         'panel.detectDark': 'Do not theme pages that already use a dark theme',
         'panel.colors': 'Colors',
@@ -371,7 +353,6 @@
         'menu.settings': '⚙️ 更多设置',
         'menu.site': '🌐 此网站上: {status}',
         'menu.global': '🌍 全局：{status}',
-        'menu.engine': '🎨 主题引擎：{engine}',
         'menu.colorMode': '🌗 色彩模式：{mode}',
         'engine.dynamic': '动态主题',
         'engine.filter': '滤镜',
@@ -396,9 +377,6 @@
         'panel.contrast': '对比度',
         'panel.grayscale': '灰度',
         'panel.sepia': '棕褐色',
-        'panel.textStroke': '文字描边',
-        'panel.useFont': '使用自定义字体',
-        'panel.fontFamily': '字体',
         'panel.systemControls': '适配系统控件',
         'panel.detectDark': '跳过已使用深色主题的网站',
         'panel.colors': '颜色',
@@ -443,11 +421,11 @@
     const HOST_ID = 'blackcat-settings-panel';
 
     const THEME_SETTING_KEYS = [
-        'engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke', 'useFont', 'fontFamily',
+        'engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia',
         'styleSystemControls', 'detectDarkTheme', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
         'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor',
     ];
-    const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke']);
+    const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia']);
 
     function openSettingsPanel({settings, hostname, onSave, language = detectLanguage()}) {
         const t = (key, values) => translate(key, language, values);
@@ -587,13 +565,6 @@
         addRange(form, t('panel.contrast'), 'contrast', themeSettings.contrast, 50, 150, 1, '%');
         addRange(form, t('panel.grayscale'), 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
         addRange(form, t('panel.sepia'), 'sepia', themeSettings.sepia, 0, 100, 1, '%');
-        addRange(form, t('panel.textStroke'), 'textStroke', themeSettings.textStroke, 0, 1, 0.1, 'px');
-        addCheck(form, t('panel.useFont'), 'useFont', themeSettings.useFont);
-        const font = document.createElement('input');
-        font.type = 'text';
-        font.maxLength = 200;
-        font.value = themeSettings.fontFamily;
-        controls.fontFamily = addField(form, t('panel.fontFamily'), font);
         addCheck(form, t('panel.systemControls'), 'styleSystemControls', themeSettings.styleSystemControls);
         addCheck(form, t('panel.detectDark'), 'detectDarkTheme', themeSettings.detectDarkTheme);
 
@@ -722,10 +693,10 @@
         controls.automationMode.dispatchEvent(new Event('change'));
         reset.addEventListener('click', () => {
             const defaults = normalizeSettings(DEFAULT_SETTINGS);
-            for (const key of ['enabled', 'enabledByDefault', 'useFont', 'styleSystemControls', 'detectDarkTheme']) {
+            for (const key of ['enabled', 'enabledByDefault', 'styleSystemControls', 'detectDarkTheme']) {
                 controls[key].checked = defaults[key];
             }
-            for (const key of ['engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke', 'fontFamily', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
+            for (const key of ['engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
                 controls[key].value = String(defaults[key]);
                 controls[key].dispatchEvent(new Event('input'));
             }
@@ -874,11 +845,6 @@
         }
     }
 
-    function cycleEngine(current) {
-        const engines = ['dynamicTheme', 'cssFilter', 'svgFilter', 'staticTheme'];
-        return engines[(engines.indexOf(current) + 1) % engines.length];
-    }
-
     async function start() {
         let settings = await readSettings();
         const hostname = location.hostname.toLowerCase();
@@ -886,12 +852,6 @@
         const t = (key, values) => translate(key, language, values);
 
         const menuIds = [];
-        const engineMessage = {
-            dynamicTheme: 'engine.dynamic',
-            cssFilter: 'engine.filter',
-            svgFilter: 'engine.svgFilter',
-            staticTheme: 'engine.static',
-        };
         const registerMenuCommands = () => {
             if (menuIds.length > 0) {
                 if (typeof unregisterMenu !== 'function' || menuIds.some((id) => id === undefined || id === null)) return;
@@ -899,18 +859,6 @@
                 menuIds.length = 0;
             }
 
-            menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
-                settings,
-                hostname,
-                language,
-                onSave: async (next) => {
-                    settings = normalizeSettings(next);
-                    await persist(settings);
-                    apply(settings);
-                    scheduleAutomation(settings);
-                    registerMenuCommands();
-                },
-            })));
             menuIds.push(register(t('menu.site', {
                 status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
             }), async () => {
@@ -927,14 +875,22 @@
                 settings = await update((current) => ({...current, enabled: !current.enabled}));
                 registerMenuCommands();
             }));
-            menuIds.push(register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
-                settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
-                registerMenuCommands();
-            }));
             menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
                 settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
                 registerMenuCommands();
             }));
+            menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
+                settings,
+                hostname,
+                language,
+                onSave: async (next) => {
+                    settings = normalizeSettings(next);
+                    await persist(settings);
+                    apply(settings);
+                    scheduleAutomation(settings);
+                    registerMenuCommands();
+                },
+            })));
         };
         registerMenuCommands();
 

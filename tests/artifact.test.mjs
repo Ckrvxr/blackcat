@@ -25,15 +25,26 @@ test('userscript menu labels omit the redundant project prefix', () => {
     assert.doesNotMatch(script, /registerMenu\(`\[Blackcat\] \$\{label\}`, callback\)/);
 });
 
+test('exposes exactly four menu commands in the requested order', () => {
+    const registeredMenuKeys = [...script.matchAll(/menuIds\.push\(register\(t\('menu\.([A-Za-z]+)'/g)]
+        .map((match) => match[1]);
+    assert.deepEqual(registeredMenuKeys, ['site', 'global', 'colorMode', 'settings']);
+});
+
 test('userscript bundle includes the requested Chinese menu labels and settings UI', () => {
     assert.ok(script.includes('⚙️ 更多设置'));
     assert.ok(script.includes('🌍 全局：{status}'));
     assert.ok(script.includes('🌐 此网站上: {status}'));
     assert.ok(script.includes('🌗 色彩模式：{mode}'));
-    assert.ok(script.includes('🎨 主题引擎：{engine}'));
-    assert.doesNotMatch(script, /(?:色彩模式|主题引擎)：\{(?:mode|engine)\}（切换）/);
+    assert.doesNotMatch(script, /色彩模式：\{mode\}（切换）/);
     assert.ok(script.includes('启用选项'));
     assert.ok(script.includes('恢复默认设置'));
+});
+
+test('userscript adapter no longer exposes font or text stroke settings', () => {
+    for (const legacyOption of ['useFont', 'fontFamily', 'textStroke', 'Use custom font', 'Font family', 'Text stroke', '使用自定义字体', '文字描边']) {
+        assert.doesNotMatch(script, new RegExp(legacyOption));
+    }
 });
 
 test('engine API is explicitly exposed on the userscript global', () => {

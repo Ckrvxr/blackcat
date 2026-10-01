@@ -7,9 +7,6 @@ export const DEFAULT_SETTINGS = Object.freeze({
     contrast: 100,
     grayscale: 0,
     sepia: 0,
-    useFont: false,
-    fontFamily: 'system-ui, sans-serif',
-    textStroke: 0,
     darkSchemeBackgroundColor: '#181a1b',
     darkSchemeTextColor: '#e8e6e3',
     lightSchemeBackgroundColor: '#dcdad7',
@@ -38,12 +35,11 @@ const THEME_RANGES = Object.freeze({
     contrast: [50, 150],
     grayscale: [0, 100],
     sepia: [0, 100],
-    textStroke: [0, 1],
 });
 const HOST_PATTERN = /^(?:\*\.)?(?:[a-z0-9.-]+|\[[a-f0-9:.]+\])$/i;
 const THEME_KEYS = [
     ...Object.keys(THEME_RANGES),
-    'engine', 'useFont', 'fontFamily', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
+    'engine', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
     'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'scrollbarColor', 'selectionColor',
     'styleSystemControls', 'detectDarkTheme',
 ];
@@ -94,7 +90,8 @@ function normalizeSiteThemes(value) {
     if (!value || typeof value !== 'object' || Array.isArray(value)) return {};
     return Object.fromEntries(Object.entries(value)
         .filter(([host, theme]) => validHostPattern(host) && Boolean(theme) && typeof theme === 'object' && !Array.isArray(theme))
-        .map(([host, theme]) => [host.toLowerCase(), normalizeThemePatch(theme)]));
+        .map(([host, theme]) => [host.toLowerCase(), normalizeThemePatch(theme)])
+        .filter(([, theme]) => Object.keys(theme).length > 0));
 }
 
 function validColor(value, fallback) {
@@ -106,12 +103,6 @@ function validThemeColor(value, fallback, allowEmpty = false) {
         return value;
     }
     return validColor(value, fallback);
-}
-
-function normalizeFontFamily(value) {
-    return typeof value === 'string' && value.length <= 200 && /^[\p{L}\p{N}\s,_'"-]+$/u.test(value)
-        ? value
-        : DEFAULT_SETTINGS.fontFamily;
 }
 
 export function normalizeSettings(value) {
@@ -128,8 +119,6 @@ export function normalizeSettings(value) {
         enabled: typeof input.enabled === 'boolean' ? input.enabled : DEFAULT_SETTINGS.enabled,
         enabledByDefault: typeof input.enabledByDefault === 'boolean' ? input.enabledByDefault : DEFAULT_SETTINGS.enabledByDefault,
         engine: ENGINES.has(input.engine) ? input.engine : DEFAULT_SETTINGS.engine,
-        useFont: typeof input.useFont === 'boolean' ? input.useFont : DEFAULT_SETTINGS.useFont,
-        fontFamily: normalizeFontFamily(input.fontFamily),
         darkSchemeBackgroundColor: validColor(input.darkSchemeBackgroundColor, DEFAULT_SETTINGS.darkSchemeBackgroundColor),
         darkSchemeTextColor: validColor(input.darkSchemeTextColor, DEFAULT_SETTINGS.darkSchemeTextColor),
         lightSchemeBackgroundColor: validColor(input.lightSchemeBackgroundColor, DEFAULT_SETTINGS.lightSchemeBackgroundColor),
@@ -164,9 +153,6 @@ export function toThemeOptions(value) {
         contrast: settings.contrast,
         grayscale: settings.grayscale,
         sepia: settings.sepia,
-        useFont: settings.useFont,
-        fontFamily: settings.fontFamily,
-        textStroke: settings.textStroke,
         darkSchemeBackgroundColor: settings.darkSchemeBackgroundColor,
         darkSchemeTextColor: settings.darkSchemeTextColor,
         lightSchemeBackgroundColor: settings.lightSchemeBackgroundColor,

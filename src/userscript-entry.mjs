@@ -94,11 +94,6 @@ function register(label, callback) {
     }
 }
 
-function cycleEngine(current) {
-    const engines = ['dynamicTheme', 'cssFilter', 'svgFilter', 'staticTheme'];
-    return engines[(engines.indexOf(current) + 1) % engines.length];
-}
-
 async function start() {
     let settings = await readSettings();
     const hostname = location.hostname.toLowerCase();
@@ -106,12 +101,6 @@ async function start() {
     const t = (key, values) => translate(key, language, values);
 
     const menuIds = [];
-    const engineMessage = {
-        dynamicTheme: 'engine.dynamic',
-        cssFilter: 'engine.filter',
-        svgFilter: 'engine.svgFilter',
-        staticTheme: 'engine.static',
-    };
     const registerMenuCommands = () => {
         if (menuIds.length > 0) {
             if (typeof unregisterMenu !== 'function' || menuIds.some((id) => id === undefined || id === null)) return;
@@ -119,18 +108,6 @@ async function start() {
             menuIds.length = 0;
         }
 
-        menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
-            settings,
-            hostname,
-            language,
-            onSave: async (next) => {
-                settings = normalizeSettings(next);
-                await persist(settings);
-                apply(settings);
-                scheduleAutomation(settings);
-                registerMenuCommands();
-            },
-        })));
         menuIds.push(register(t('menu.site', {
             status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
         }), async () => {
@@ -147,14 +124,22 @@ async function start() {
             settings = await update((current) => ({...current, enabled: !current.enabled}));
             registerMenuCommands();
         }));
-        menuIds.push(register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
-            settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
-            registerMenuCommands();
-        }));
         menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
             settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
             registerMenuCommands();
         }));
+        menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
+            settings,
+            hostname,
+            language,
+            onSave: async (next) => {
+                settings = normalizeSettings(next);
+                await persist(settings);
+                apply(settings);
+                scheduleAutomation(settings);
+                registerMenuCommands();
+            },
+        })));
     };
     registerMenuCommands();
 

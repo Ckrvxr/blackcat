@@ -4,11 +4,11 @@ import {detectLanguage, translate} from './i18n.mjs';
 const HOST_ID = 'blackcat-settings-panel';
 
 const THEME_SETTING_KEYS = [
-    'engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke', 'useFont', 'fontFamily',
+    'engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia',
     'styleSystemControls', 'detectDarkTheme', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
     'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor',
 ];
-const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke']);
+const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia']);
 
 export function openSettingsPanel({settings, hostname, onSave, language = detectLanguage()}) {
     const t = (key, values) => translate(key, language, values);
@@ -148,13 +148,6 @@ export function openSettingsPanel({settings, hostname, onSave, language = detect
     addRange(form, t('panel.contrast'), 'contrast', themeSettings.contrast, 50, 150, 1, '%');
     addRange(form, t('panel.grayscale'), 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
     addRange(form, t('panel.sepia'), 'sepia', themeSettings.sepia, 0, 100, 1, '%');
-    addRange(form, t('panel.textStroke'), 'textStroke', themeSettings.textStroke, 0, 1, 0.1, 'px');
-    addCheck(form, t('panel.useFont'), 'useFont', themeSettings.useFont);
-    const font = document.createElement('input');
-    font.type = 'text';
-    font.maxLength = 200;
-    font.value = themeSettings.fontFamily;
-    controls.fontFamily = addField(form, t('panel.fontFamily'), font);
     addCheck(form, t('panel.systemControls'), 'styleSystemControls', themeSettings.styleSystemControls);
     addCheck(form, t('panel.detectDark'), 'detectDarkTheme', themeSettings.detectDarkTheme);
 
@@ -283,10 +276,10 @@ export function openSettingsPanel({settings, hostname, onSave, language = detect
     controls.automationMode.dispatchEvent(new Event('change'));
     reset.addEventListener('click', () => {
         const defaults = normalizeSettings(DEFAULT_SETTINGS);
-        for (const key of ['enabled', 'enabledByDefault', 'useFont', 'styleSystemControls', 'detectDarkTheme']) {
+        for (const key of ['enabled', 'enabledByDefault', 'styleSystemControls', 'detectDarkTheme']) {
             controls[key].checked = defaults[key];
         }
-        for (const key of ['engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke', 'fontFamily', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
+        for (const key of ['engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
             controls[key].value = String(defaults[key]);
             controls[key].dispatchEvent(new Event('input'));
         }

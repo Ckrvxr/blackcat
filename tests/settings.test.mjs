@@ -26,11 +26,30 @@ test('normalizes persisted values and rejects invalid engine names', () => {
     assert.equal(settings.automation.mode, 'none');
 });
 
-test('normalizes font, colors, selection, scrollbars, and system-control options', () => {
-    const settings = normalizeSettings({
+test('removes legacy font and text stroke settings from data and engine options', () => {
+    const legacy = {
         useFont: true,
         fontFamily: 'Inter, sans-serif',
-        textStroke: 0.4,
+        textStroke: 0.8,
+        siteThemes: {'example.com': {useFont: true, fontFamily: 'Inter, sans-serif', textStroke: 0.8}},
+    };
+    const settings = normalizeSettings(legacy);
+    const options = toThemeOptions({...DEFAULT_SETTINGS, ...legacy});
+
+    assert.equal(Object.hasOwn(DEFAULT_SETTINGS, 'useFont'), false);
+    assert.equal(Object.hasOwn(DEFAULT_SETTINGS, 'fontFamily'), false);
+    assert.equal(Object.hasOwn(DEFAULT_SETTINGS, 'textStroke'), false);
+    assert.equal(Object.hasOwn(settings, 'useFont'), false);
+    assert.equal(Object.hasOwn(settings, 'fontFamily'), false);
+    assert.equal(Object.hasOwn(settings, 'textStroke'), false);
+    assert.deepEqual(settings.siteThemes, {});
+    assert.equal(Object.hasOwn(options, 'useFont'), false);
+    assert.equal(Object.hasOwn(options, 'fontFamily'), false);
+    assert.equal(Object.hasOwn(options, 'textStroke'), false);
+});
+
+test('normalizes colors, selection, scrollbars, and system-control options', () => {
+    const settings = normalizeSettings({
         darkSchemeBackgroundColor: '#123456',
         selectionColor: '#abcdef',
         scrollbarColor: 'auto',
@@ -38,17 +57,11 @@ test('normalizes font, colors, selection, scrollbars, and system-control options
         detectDarkTheme: false,
     });
 
-    assert.equal(settings.useFont, true);
-    assert.equal(settings.fontFamily, 'Inter, sans-serif');
-    assert.equal(settings.textStroke, 0.4);
     assert.equal(settings.darkSchemeBackgroundColor, '#123456');
     assert.equal(settings.selectionColor, '#abcdef');
     assert.equal(settings.scrollbarColor, 'auto');
     assert.equal(settings.styleSystemControls, false);
     assert.equal(settings.detectDarkTheme, false);
-
-    const unsafeFont = normalizeSettings({fontFamily: 'Inter; display:none'});
-    assert.equal(unsafeFont.fontFamily, DEFAULT_SETTINGS.fontFamily);
 });
 
 test('only theme fields are passed to the rendering engine', () => {
