@@ -40,6 +40,26 @@ The install script pins both `@require` and update URLs to the same ref. The def
 
 After a release is published, open `dist/blackcat.user.js` from GitHub in Tampermonkey or Violentmonkey and confirm installation. Its metadata loads `dist/engine.js` from jsDelivr at the same immutable tag. It requires only userscript storage/menu APIs; it does not request broad cross-origin `GM_xmlhttpRequest` access.
 
+## Settings
+
+Open **More settings** from the existing userscript menu. The nonmodal window sits at the top right and can be closed with × or Escape; the page remains interactive.
+
+- **Theme**: color mode, all four rendering engines, brightness/contrast/grayscale/sepia, system controls, dark-page detection, and collapsible advanced colors.
+- **Site**: enablement and a separate theme for the current hostname. The theme tab indicates whether you are editing global or site-only values.
+- **Automation**: system preference, local-time schedule, or sunrise/sunset from manually entered coordinates. Only controls relevant to the selected mode are shown.
+- **General**: global enablement, default site policy, and interface language.
+
+Valid changes apply immediately and are automatically persisted. Slider writes are serialized and coalesced so an older write cannot overwrite the final value. Invalid input is highlighted and does not change stored settings. A storage failure is shown in the window; change the option again to retry. There are no save/cancel actions. Bold option labels mark values different from factory defaults, including site-specific values. **Initialize** restores all defaults, including language and automation, and clears every saved site configuration.
+
+For real Chromium tests, install `agent-browser` and its Chromium runtime, then run:
+
+```sh
+pnpm build
+pnpm test:browser
+```
+
+The browser tests cover the actual DOM controls and generated adapter, all rendering engines, live language changes, persistence failures, initialization, and narrow-window layout. They use a localhost fixture, not an installed userscript-manager extension; Safari Tampermonkey and Violentmonkey still need separate verification.
+
 ## Reproducibility and auditing
 
 Run `pnpm verify:reproducible` to build twice and compare SHA-256-identical outputs. The engine identifies the exact Dark Reader source commit in its banner and in `dist/upstream.json`; the upstream source and MIT license remain available from that commit. `dist/` is generated output and must be rebuilt—not hand-edited—before publication.

@@ -24,7 +24,8 @@ test('translates the four visible menu labels and their state values', () => {
     assert.equal(translate('menu.colorMode', 'zh-CN', {mode: '深色'}), '🌗 色彩模式：深色');
     assert.equal(translate('menu.colorMode', 'en', {mode: 'dark'}), '🌗 Color mode: dark');
     assert.equal(translate('menu.global', 'en', {status: 'Disabled'}), '🌍 Global: Disabled');
-    assert.equal(translate('panel.siteEnabled', 'zh-CN', {hostname: 'example.com'}), '为 example.com 启用 Blackcat');
+    assert.equal(translate('panel.siteEnabledShort', 'zh-CN'), '在此网站启用');
+    assert.equal(translate('panel.reset', 'zh-CN'), '初始化');
 });
 
 test('prefixes each menu command with a matching emoji', () => {

@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Blackcat Dark Reader
 // @namespace    https://github.com/Ckrvxr/blackcat
-// @version      0.1.0-beta.7
+// @version      0.1.0-beta.8
 // @description  Dark Reader page themes / 网页深色主题
 // @match        *://*/*
 // @run-at       document-start
@@ -10,9 +10,9 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_addValueChangeListener
-// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.7/dist/engine.js
-// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.7/dist/blackcat.user.js
-// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.7/dist/blackcat.user.js
+// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.8/dist/engine.js
+// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.8/dist/blackcat.user.js
+// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.8/dist/blackcat.user.js
 // ==/UserScript==
 (function () {
     'use strict';
@@ -250,11 +250,9 @@
         const current = normalizeSettings(settings);
         const siteOverrides = {...current.siteOverrides};
         const key = hostname.toLowerCase();
-        if (enabled === current.enabledByDefault) {
-            delete siteOverrides[key];
-        } else {
-            siteOverrides[key] = enabled;
-        }
+        delete siteOverrides[key];
+        const inherited = resolveSiteEnabled({...current, siteOverrides}, `https://${key}/`);
+        if (enabled !== inherited) siteOverrides[key] = enabled;
         return normalizeSettings({...current, siteOverrides});
     }
 
@@ -308,16 +306,12 @@
         'mode.dimmed': 'dimmed',
         'state.enabled': 'Enabled',
         'state.disabled': 'Disabled',
-        'panel.title': 'Blackcat · Dark Reader',
         'panel.language': 'Language',
-        'panel.languageAuto': 'Automatic (browser language)',
+        'panel.languageAuto': 'Follow browser',
         'panel.languageEnglish': 'English',
         'panel.languageChinese': 'Simplified Chinese',
-        'panel.enablement': 'Enablement',
         'panel.enabled': 'Enable Blackcat',
-        'panel.enabledByDefault': 'Enable on sites without an override',
-        'panel.siteEnabled': 'Enable for {hostname}',
-        'panel.siteTheme': 'Use theme settings for this site only',
+        'panel.enabledByDefault': 'Enable on sites by default',
         'panel.theme': 'Theme',
         'panel.engine': 'Rendering engine',
         'panel.colorMode': 'Color mode',
@@ -328,32 +322,45 @@
         'panel.grayscale': 'Grayscale',
         'panel.sepia': 'Sepia',
         'panel.systemControls': 'Style system controls',
-        'panel.detectDark': 'Do not theme pages that already use a dark theme',
+        'panel.detectDark': 'Skip already-dark pages',
         'panel.colors': 'Colors',
-        'panel.darkBackground': 'Dark background',
-        'panel.darkText': 'Dark text',
-        'panel.dimmedBackground': 'Dimmed background',
-        'panel.dimmedText': 'Dimmed text',
-        'panel.selectionColor': 'Selection color (auto or hex)',
-        'panel.scrollbarColor': 'Scrollbar color (auto, blank, or hex)',
+        'panel.selectionColor': 'Selection color',
+        'panel.scrollbarColor': 'Scrollbar color',
         'panel.automation': 'Automation',
         'panel.automationMode': 'Mode',
         'panel.automationOff': 'Off',
-        'panel.automationSystem': 'Follow system color scheme',
+        'panel.automationSystem': 'Follow system',
         'panel.automationTime': 'Time schedule',
         'panel.automationLocation': 'Sunrise and sunset',
         'panel.automationBehavior': 'When automation chooses light',
         'panel.behaviorOff': 'Turn Dark Reader off',
-        'panel.behaviorDimmed': 'Use the dimmed theme',
+        'panel.behaviorDimmed': 'Dimmed theme',
         'panel.turnOnAt': 'Turn on at',
         'panel.turnOffAt': 'Turn off at',
-        'panel.locationNote': 'Coordinates stay in this script manager; Blackcat does not request device location.',
+        'panel.locationNote': 'Enter both coordinates to use sunrise and sunset. They stay in your script manager; no device location permission is requested.',
         'panel.latitude': 'Latitude (-90 to 90)',
         'panel.longitude': 'Longitude (-180 to 180)',
-        'panel.reset': 'Reset defaults',
-        'panel.cancel': 'Cancel',
-        'panel.save': 'Save',
-        'panel.saveError': 'Settings could not be saved. Please retry.',
+        'panel.reset': 'Initialize',
+        'panel.saveError': 'Applied, but not saved. Change the option again to retry.',
+        'panel.subtitle': 'Appearance & preferences',
+        'panel.siteTab': 'Site',
+        'panel.general': 'General',
+        'panel.close': 'Close settings',
+        'panel.sections': 'Settings sections',
+        'panel.live': 'Instant apply · Auto-save',
+        'panel.scopeGlobal': 'Editing the global theme',
+        'panel.scopeSite': 'Editing this site’s theme only',
+        'panel.background': 'Background',
+        'panel.text': 'Text',
+        'panel.siteEnabledShort': 'Enable on this site',
+        'panel.siteEnabledHelp': 'The global switch must also be on. This choice overrides the default site policy.',
+        'panel.siteThemeShort': 'Separate theme for this site',
+        'panel.siteThemeHelp': 'When on, changes in Theme affect only this site. Turning it off removes this site’s theme settings.',
+        'panel.colorHelp': 'Use auto or a hex color such as #aabbcc. Leave scrollbar blank to keep the site’s style.',
+        'panel.timeHelp': 'Uses your device’s local time. Overnight schedules are supported.',
+        'panel.defaultsHelp': 'Bold labels indicate values different from factory defaults.',
+        'panel.initializeHelp': 'Restore all defaults and clear every saved site configuration.',
+        'panel.invalidInput': 'Check the highlighted field. Invalid values are not applied or saved.',
     });
 
     const SIMPLIFIED_CHINESE = Object.freeze({
@@ -369,16 +376,12 @@
         'mode.dimmed': '柔和',
         'state.enabled': '启用',
         'state.disabled': '关闭',
-        'panel.title': 'Blackcat · 深色模式',
         'panel.language': '界面语言',
         'panel.languageAuto': '自动（跟随浏览器）',
         'panel.languageEnglish': '英文',
         'panel.languageChinese': '简体中文',
-        'panel.enablement': '启用选项',
         'panel.enabled': '启用 Blackcat',
         'panel.enabledByDefault': '默认在所有网站启用',
-        'panel.siteEnabled': '为 {hostname} 启用 Blackcat',
-        'panel.siteTheme': '仅对此网站使用单独的主题设置',
         'panel.theme': '主题',
         'panel.engine': '渲染引擎',
         'panel.colorMode': '色彩模式',
@@ -391,12 +394,8 @@
         'panel.systemControls': '适配系统控件',
         'panel.detectDark': '跳过已使用深色主题的网站',
         'panel.colors': '颜色',
-        'panel.darkBackground': '深色背景',
-        'panel.darkText': '深色文字',
-        'panel.dimmedBackground': '柔和背景',
-        'panel.dimmedText': '柔和文字',
-        'panel.selectionColor': '选中文本颜色（自动或十六进制）',
-        'panel.scrollbarColor': '滚动条颜色（自动、留空或十六进制）',
+        'panel.selectionColor': '选中文本颜色',
+        'panel.scrollbarColor': '滚动条颜色',
         'panel.automation': '自动切换',
         'panel.automationMode': '模式',
         'panel.automationOff': '关闭',
@@ -408,13 +407,30 @@
         'panel.behaviorDimmed': '使用柔和主题',
         'panel.turnOnAt': '开启时间',
         'panel.turnOffAt': '关闭时间',
-        'panel.locationNote': '坐标仅保存在此脚本管理器中；Blackcat 不会请求设备定位权限。',
+        'panel.locationNote': '请填写经纬度以使用日出和日落切换。坐标仅保存在脚本管理器中，不请求设备定位权限。',
         'panel.latitude': '纬度（-90 至 90）',
         'panel.longitude': '经度（-180 至 180）',
-        'panel.reset': '恢复默认设置',
-        'panel.cancel': '取消',
-        'panel.save': '保存',
-        'panel.saveError': '设置保存失败，请重试。',
+        'panel.reset': '初始化',
+        'panel.saveError': '已生效，但未保存。请再次调整选项以重试。',
+        'panel.subtitle': '外观与偏好设置',
+        'panel.siteTab': '网站',
+        'panel.general': '通用',
+        'panel.close': '关闭设置',
+        'panel.sections': '设置分区',
+        'panel.live': '即时生效 · 自动保存',
+        'panel.scopeGlobal': '正在调整全局主题',
+        'panel.scopeSite': '仅调整此网站的主题',
+        'panel.background': '背景',
+        'panel.text': '文字',
+        'panel.siteEnabledShort': '在此网站启用',
+        'panel.siteEnabledHelp': '需同时开启全局开关；此选项优先于默认的网站启用规则。',
+        'panel.siteThemeShort': '此网站使用独立主题',
+        'panel.siteThemeHelp': '开启后，「主题」中的调整仅影响此网站；关闭会移除此网站的主题设置。',
+        'panel.colorHelp': '可填 auto 或 #aabbcc 等十六进制颜色。滚动条留空时保留网站原样式。',
+        'panel.timeHelp': '使用设备本地时间，支持跨午夜的时间段。',
+        'panel.defaultsHelp': '加粗的选项表示其值与出厂默认值不同。',
+        'panel.initializeHelp': '恢复全部默认设置，并清除所有网站的单独配置。',
+        'panel.invalidInput': '请检查标红的输入项；无效值不会生效或保存。',
     });
 
     Object.freeze(Object.keys(ENGLISH));
@@ -433,346 +449,444 @@
         return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_match, name) => String(values[name] ?? `{${name}}`));
     }
 
-    const HOST_ID = 'blackcat-settings-panel';
+    const THEME_SETTING_KEYS = Object.freeze(Object.keys(toThemeOptions(DEFAULT_SETTINGS)));
+    const GLOBAL_KEYS = new Set(['enabled', 'enabledByDefault', 'language']);
+    const NESTED_KEYS = new Set(['automation.mode', 'automation.behavior', 'automation.activation', 'automation.deactivation', 'location.latitude', 'location.longitude']);
 
-    const THEME_SETTING_KEYS = [
-        'engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia',
-        'styleSystemControls', 'detectDarkTheme', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
-        'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor',
-    ];
-    const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia']);
-
-    function openSettingsPanel({settings, hostname, onSave, language = resolveLanguage(settings.language)}) {
-        const t = (key, values) => translate(key, language, values);
-        const themeSettings = resolveThemeForSite(settings, location.href);
-        const hasSiteTheme = Object.hasOwn(settings.siteThemes, hostname.toLowerCase());
-        const existing = document.getElementById(HOST_ID);
-        if (existing) {
-            existing.shadowRoot?.querySelector('[role="dialog"]')?.focus();
-            return;
+    function getPanelValue(settings, hostname, key) {
+        if (key === 'siteThemeOnly') return Object.hasOwn(settings.siteThemes, hostname);
+        if (key === 'siteEnabled') return resolveSiteEnabled(settings, `https://${hostname}/`);
+        if (THEME_SETTING_KEYS.includes(key)) {
+            const theme = getPanelValue(settings, hostname, 'siteThemeOnly')
+                ? resolveThemeForSite(settings, `https://${hostname}/`)
+                : settings;
+            return theme[key];
         }
-
-        const host = document.createElement('div');
-        host.id = HOST_ID;
-        const shadow = host.attachShadow({mode: 'open'});
-        const style = document.createElement('style');
-        style.textContent = `
-        :host { all: initial; color-scheme: dark; font: 14px/1.45 system-ui, sans-serif; }
-        * { box-sizing: border-box; }
-        .backdrop { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; padding: 16px; background: #0009; }
-        .panel { width: min(560px, 100%); max-height: min(860px, 94vh); overflow: auto; padding: 22px; color: #e8e6e3; background: #181a1b; border: 1px solid #454a4d; border-radius: 12px; box-shadow: 0 12px 48px #0009; }
-        h1 { margin: 0 0 16px; font-size: 20px; }
-        h2 { margin: 20px 0 8px; font-size: 14px; color: #b8c0c5; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        label { display: grid; gap: 5px; margin: 9px 0; color: #d5dadd; }
-        label.check { display: flex; align-items: center; gap: 9px; }
-        input, select, button { color: inherit; font: inherit; }
-        input[type="text"], input[type="time"], select { min-width: 0; width: 100%; padding: 8px; border: 1px solid #596168; border-radius: 6px; background: #25292c; }
-        input[type="range"] { width: 100%; accent-color: #8ab4f8; }
-        input[type="color"] { width: 48px; height: 30px; padding: 2px; border: 1px solid #596168; border-radius: 5px; background: #25292c; }
-        input[type="checkbox"] { width: 16px; height: 16px; accent-color: #8ab4f8; }
-        output { float: right; color: #aeb8bf; font-variant-numeric: tabular-nums; }
-        .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
-        button { padding: 8px 14px; border: 1px solid #596168; border-radius: 6px; background: #25292c; cursor: pointer; }
-        button.primary { border-color: #8ab4f8; color: #101820; background: #8ab4f8; }
-        button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
-        @media (max-width: 460px) { .grid { grid-template-columns: 1fr; } .panel { padding: 16px; } }
-    `;
-
-        const backdrop = document.createElement('div');
-        backdrop.className = 'backdrop';
-        const panel = document.createElement('section');
-        panel.className = 'panel';
-        panel.setAttribute('role', 'dialog');
-        panel.setAttribute('lang', language);
-        panel.setAttribute('aria-modal', 'true');
-        panel.setAttribute('aria-labelledby', 'blackcat-title');
-        panel.tabIndex = -1;
-
-        const heading = document.createElement('h1');
-        heading.id = 'blackcat-title';
-        heading.textContent = t('panel.title');
-        const status = document.createElement('p');
-        status.setAttribute('role', 'status');
-        status.hidden = true;
-        panel.append(heading, status);
-
-        const form = document.createElement('form');
-        const controls = {};
-        const addText = (parent, text, tag = 'h2') => {
-            const element = document.createElement(tag);
-            element.textContent = text;
-            parent.append(element);
-            return element;
-        };
-        const addField = (parent, labelText, control) => {
-            const label = document.createElement('label');
-            const caption = document.createElement('span');
-            caption.textContent = labelText;
-            label.append(caption, control);
-            parent.append(label);
-            return control;
-        };
-        const addCheck = (parent, labelText, key, value) => {
-            const label = document.createElement('label');
-            label.className = 'check';
-            const input = document.createElement('input');
-            input.type = 'checkbox';
-            input.checked = Boolean(value);
-            const caption = document.createElement('span');
-            caption.textContent = labelText;
-            label.append(input, caption);
-            parent.append(label);
-            controls[key] = input;
-            return input;
-        };
-        const addSelect = (parent, labelText, key, value, choices) => {
-            const select = document.createElement('select');
-            for (const [optionValue, optionLabel] of choices) {
-                const option = document.createElement('option');
-                option.value = optionValue;
-                option.textContent = optionLabel;
-                select.append(option);
-            }
-            select.value = String(value);
-            controls[key] = select;
-            return addField(parent, labelText, select);
-        };
-        const addRange = (parent, labelText, key, value, min, max, step, suffix = '') => {
-            const label = document.createElement('label');
-            const caption = document.createElement('span');
-            const output = document.createElement('output');
-            const input = document.createElement('input');
-            input.type = 'range';
-            input.min = String(min);
-            input.max = String(max);
-            input.step = String(step);
-            input.value = String(value);
-            output.value = `${value}${suffix}`;
-            input.addEventListener('input', () => {
-                output.value = `${input.value}${suffix}`;
-            });
-            caption.textContent = labelText;
-            caption.append(output);
-            label.append(caption, input);
-            parent.append(label);
-            controls[key] = input;
-        };
-        const grid = document.createElement('div');
-        grid.className = 'grid';
-
-        addSelect(form, t('panel.language'), 'language', settings.language, [
-            ['auto', t('panel.languageAuto')],
-            ['en', t('panel.languageEnglish')],
-            ['zh-CN', t('panel.languageChinese')],
-        ]);
-        addText(form, t('panel.enablement'));
-        addCheck(form, t('panel.enabled'), 'enabled', settings.enabled);
-        addCheck(form, t('panel.enabledByDefault'), 'enabledByDefault', settings.enabledByDefault);
-        addCheck(form, t('panel.siteEnabled', {hostname}), 'siteEnabled', resolveSiteEnabled(settings, location.href));
-        addCheck(form, t('panel.siteTheme'), 'siteThemeOnly', hasSiteTheme);
-
-        addText(form, t('panel.theme'));
-        addSelect(grid, t('panel.engine'), 'engine', themeSettings.engine, [
-            ['dynamicTheme', t('engine.dynamic')],
-            ['cssFilter', t('engine.filter')],
-            ['svgFilter', t('engine.svgFilter')],
-            ['staticTheme', t('engine.static')],
-        ]);
-        addSelect(grid, t('panel.colorMode'), 'mode', themeSettings.mode, [['1', t('panel.modeDark')], ['0', t('panel.modeDimmed')]]);
-        form.append(grid);
-        addRange(form, t('panel.brightness'), 'brightness', themeSettings.brightness, 50, 150, 1, '%');
-        addRange(form, t('panel.contrast'), 'contrast', themeSettings.contrast, 50, 150, 1, '%');
-        addRange(form, t('panel.grayscale'), 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
-        addRange(form, t('panel.sepia'), 'sepia', themeSettings.sepia, 0, 100, 1, '%');
-        addCheck(form, t('panel.systemControls'), 'styleSystemControls', themeSettings.styleSystemControls);
-        addCheck(form, t('panel.detectDark'), 'detectDarkTheme', themeSettings.detectDarkTheme);
-
-        addText(form, t('panel.colors'));
-        const colorGrid = document.createElement('div');
-        colorGrid.className = 'grid';
-        for (const [key, labelText] of [
-            ['darkSchemeBackgroundColor', t('panel.darkBackground')],
-            ['darkSchemeTextColor', t('panel.darkText')],
-            ['lightSchemeBackgroundColor', t('panel.dimmedBackground')],
-            ['lightSchemeTextColor', t('panel.dimmedText')],
-        ]) {
-            const input = document.createElement('input');
-            input.type = 'color';
-            input.value = themeSettings[key].length === 4 ? `#${[...themeSettings[key].slice(1)].map((c) => c + c).join('')}` : themeSettings[key];
-            controls[key] = addField(colorGrid, labelText, input);
+        if (NESTED_KEYS.has(key)) {
+            const [group, field] = key.split('.');
+            return settings[group][field];
         }
-        const selection = document.createElement('input');
-        selection.type = 'text';
-        selection.maxLength = 9;
-        selection.value = themeSettings.selectionColor;
-        controls.selectionColor = addField(colorGrid, t('panel.selectionColor'), selection);
-        const scrollbar = document.createElement('input');
-        scrollbar.type = 'text';
-        scrollbar.maxLength = 9;
-        scrollbar.value = themeSettings.scrollbarColor;
-        controls.scrollbarColor = addField(colorGrid, t('panel.scrollbarColor'), scrollbar);
-        form.append(colorGrid);
+        if (GLOBAL_KEYS.has(key)) return settings[key];
+        throw new TypeError(`Unknown panel setting: ${key}`);
+    }
 
-        addText(form, t('panel.automation'));
-        addSelect(form, t('panel.automationMode'), 'automationMode', settings.automation.mode, [
-            ['none', t('panel.automationOff')],
-            ['system', t('panel.automationSystem')],
-            ['time', t('panel.automationTime')],
-            ['location', t('panel.automationLocation')],
-        ]);
-        addSelect(form, t('panel.automationBehavior'), 'automationBehavior', settings.automation.behavior, [
-            ['OnOff', t('panel.behaviorOff')],
-            ['Scheme', t('panel.behaviorDimmed')],
-        ]);
-        const timeGrid = document.createElement('div');
-        timeGrid.className = 'grid';
-        const activation = document.createElement('input');
-        activation.type = 'time';
-        activation.value = settings.automation.activation;
-        controls.activation = addField(timeGrid, t('panel.turnOnAt'), activation);
-        const deactivation = document.createElement('input');
-        deactivation.type = 'time';
-        deactivation.value = settings.automation.deactivation;
-        controls.deactivation = addField(timeGrid, t('panel.turnOffAt'), deactivation);
-        form.append(timeGrid);
-        const locationNote = document.createElement('p');
-        locationNote.textContent = t('panel.locationNote');
-        form.append(locationNote);
-        const locationGrid = document.createElement('div');
-        locationGrid.className = 'grid';
-        const latitude = document.createElement('input');
-        latitude.type = 'number';
-        latitude.min = '-90';
-        latitude.max = '90';
-        latitude.step = 'any';
-        latitude.value = settings.location.latitude ?? '';
-        controls.latitude = addField(locationGrid, t('panel.latitude'), latitude);
-        const longitude = document.createElement('input');
-        longitude.type = 'number';
-        longitude.min = '-180';
-        longitude.max = '180';
-        longitude.step = 'any';
-        longitude.value = settings.location.longitude ?? '';
-        controls.longitude = addField(locationGrid, t('panel.longitude'), longitude);
-        form.append(locationGrid);
+    function changePanelSetting(settings, hostname, key, value) {
+        const current = normalizeSettings(settings);
+        if (key === 'initialize') return normalizeSettings(DEFAULT_SETTINGS);
+        if (key === 'siteEnabled') return setSiteOverride(current, hostname, value);
+        if (key === 'siteThemeOnly') {
+            return setSiteTheme(current, hostname, value, toThemeOptions(resolveThemeForSite(current, `https://${hostname}/`)));
+        }
+        if (THEME_SETTING_KEYS.includes(key)) {
+            return getPanelValue(current, hostname, 'siteThemeOnly')
+                ? setSiteTheme(current, hostname, true, {...current.siteThemes[hostname], [key]: value})
+                : normalizeSettings({...current, [key]: value});
+        }
+        if (NESTED_KEYS.has(key)) {
+            const [group, field] = key.split('.');
+            return normalizeSettings({...current, [group]: {...current[group], [field]: value}});
+        }
+        if (GLOBAL_KEYS.has(key)) return normalizeSettings({...current, [key]: value});
+        throw new TypeError(`Unknown panel setting: ${key}`);
+    }
 
-        const actions = document.createElement('div');
-        actions.className = 'actions';
-        const reset = document.createElement('button');
-        reset.type = 'button';
-        reset.textContent = t('panel.reset');
-        const cancel = document.createElement('button');
-        cancel.type = 'button';
-        cancel.textContent = t('panel.cancel');
-        const save = document.createElement('button');
-        save.type = 'submit';
-        save.className = 'primary';
-        save.textContent = t('panel.save');
-        actions.append(reset, cancel, save);
-        form.append(actions);
-        panel.append(form);
-        backdrop.append(panel);
-        shadow.append(style, backdrop);
-        (document.documentElement || document.body).append(host);
+    function canonicalValue(value) {
+        if (typeof value !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) return value;
+        const hex = value.toLowerCase();
+        return hex.length === 4 ? `#${[...hex.slice(1)].map((character) => character + character).join('')}` : hex;
+    }
 
-        const close = () => host.remove();
-        cancel.addEventListener('click', close);
-        backdrop.addEventListener('click', (event) => {
-            if (event.target === backdrop) close();
-        });
-        panel.addEventListener('keydown', (event) => {
-            if (event.key === 'Escape') close();
-        });
-        const loadThemeControls = (source) => {
-            for (const key of THEME_SETTING_KEYS) {
-                const control = controls[key];
-                if (control.type === 'checkbox') {
-                    control.checked = source[key];
-                } else {
-                    let value = String(source[key]);
-                    if (control.type === 'color' && value.length === 4) {
-                        value = `#${[...value.slice(1)].map((character) => character + character).join('')}`;
-                    }
-                    control.value = value;
-                    control.dispatchEvent(new Event('input'));
+    function isPanelSettingChanged(settings, hostname, key) {
+        return canonicalValue(getPanelValue(settings, hostname, key)) !== canonicalValue(getPanelValue(DEFAULT_SETTINGS, hostname, key));
+    }
+
+    // Apply immediately; serialize storage and coalesce pending slider snapshots.
+    // Every caller still receives success/failure for the write covering its change.
+    function createSettingsCommitter({apply, persist}) {
+        let pending = null;
+        let running = false;
+        const drain = async () => {
+            while (pending) {
+                const batch = pending;
+                pending = null;
+                try {
+                    await persist(batch.settings);
+                    for (const waiter of batch.waiters) waiter.resolve();
+                } catch (error) {
+                    for (const waiter of batch.waiters) waiter.reject(error);
                 }
             }
+            running = false;
         };
-        controls.siteThemeOnly.addEventListener('change', () => {
-            loadThemeControls(controls.siteThemeOnly.checked ? resolveThemeForSite(settings, location.href) : settings);
-        });
-        controls.automationMode.addEventListener('change', () => {
-            const mode = controls.automationMode.value;
-            controls.automationBehavior.disabled = mode === 'none';
-            controls.activation.disabled = mode !== 'time';
-            controls.deactivation.disabled = mode !== 'time';
-            controls.latitude.disabled = mode !== 'location';
-            controls.longitude.disabled = mode !== 'location';
-        });
-        controls.automationMode.dispatchEvent(new Event('change'));
-        reset.addEventListener('click', () => {
-            const defaults = normalizeSettings(DEFAULT_SETTINGS);
-            for (const key of ['enabled', 'enabledByDefault', 'styleSystemControls', 'detectDarkTheme']) {
-                controls[key].checked = defaults[key];
-            }
-            for (const key of ['engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
-                controls[key].value = String(defaults[key]);
-                controls[key].dispatchEvent(new Event('input'));
-            }
-            controls.mode.value = String(defaults.mode);
-            controls.language.value = defaults.language;
-            controls.automationMode.value = defaults.automation.mode;
-            controls.automationBehavior.value = defaults.automation.behavior;
-            controls.activation.value = defaults.automation.activation;
-            controls.deactivation.value = defaults.automation.deactivation;
-            controls.latitude.value = '';
-            controls.longitude.value = '';
-            controls.siteEnabled.checked = resolveSiteEnabled(defaults, location.href);
-            controls.siteThemeOnly.checked = false;
-            controls.automationMode.dispatchEvent(new Event('change'));
-        });
-        form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const themeValues = {};
-            for (const key of THEME_SETTING_KEYS) {
-                const control = controls[key];
-                themeValues[key] = control.type === 'checkbox' ? control.checked :
-                    NUMERIC_THEME_KEYS.has(key) ? Number(control.value) : control.value;
-            }
-            const base = normalizeSettings({
-                ...settings,
-                enabled: controls.enabled.checked,
-                enabledByDefault: controls.enabledByDefault.checked,
-                language: controls.language.value,
-                automation: {
-                    ...settings.automation,
-                    mode: controls.automationMode.value,
-                    activation: controls.activation.value,
-                    deactivation: controls.deactivation.value,
-                    behavior: controls.automationBehavior.value,
-                },
-                location: {
-                    latitude: controls.latitude.value,
-                    longitude: controls.longitude.value,
-                },
+        return (value) => {
+            const settings = normalizeSettings(value);
+            apply(settings);
+            const completion = new Promise((resolve, reject) => {
+                const waiters = pending?.waiters || [];
+                waiters.push({resolve, reject});
+                pending = {settings, waiters};
             });
-            const withTheme = controls.siteThemeOnly.checked
-                ? setSiteTheme(base, hostname, true, themeValues)
-                : setSiteTheme(normalizeSettings({...base, ...themeValues}), hostname, false);
-            const withSiteRule = setSiteOverride(withTheme, hostname, controls.siteEnabled.checked);
-            save.disabled = true;
-            try {
-                await onSave(withSiteRule);
-                close();
-            } catch {
-                status.hidden = false;
-                status.textContent = t('panel.saveError');
-            } finally {
-                save.disabled = false;
+            if (!running) {
+                running = true;
+                void drain();
             }
+            return completion;
+        };
+    }
+
+    const PANEL_STYLE = `
+    :host { all: initial !important; position: fixed !important; top: 16px !important; right: 16px !important;
+        width: min(384px, calc(100vw - 32px)) !important; z-index: 2147483647 !important; pointer-events: none !important;
+        color-scheme: dark !important; font: 14px/1.5 system-ui, -apple-system, sans-serif !important; }
+    *, *::before, *::after { box-sizing: border-box; }
+    [hidden] { display: none !important; }
+    .panel { pointer-events: auto; display: flex; flex-direction: column; max-height: min(720px, calc(100vh - 32px));
+        max-height: min(720px, calc(100dvh - 32px)); overflow: hidden; color: #e9edf2; background: #181c23;
+        border: 1px solid #353d49; border-radius: 18px; box-shadow: 0 16px 56px #0006, 0 2px 8px #0004; }
+    .panel:focus { outline: none; }
+    header { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
+    .brand { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: #2a3546; color: #b4d0ff; font-size: 18px; font-weight: 600; }
+    h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .1px; }
+    .subtitle { margin: 0; font-size: 12px; color: #a8b4c5; }
+    button, input, select { font: inherit; color: inherit; }
+    button { cursor: pointer; }
+    .close { margin-left: auto; width: 32px; height: 32px; padding: 0; font-size: 23px; border: 0; border-radius: 8px; background: transparent; color: #a8b4c5; }
+    .close:hover { color: #fff; background: #2a303b; }
+    .tabs { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin: 0 18px 14px; padding: 4px; border-radius: 10px; background: #10141b; }
+    .tab { min-width: 0; padding: 7px 2px; font-size: 13px; border: 0; border-radius: 7px; background: transparent; color: #a8b4c5; }
+    .tab[aria-selected="true"] { background: #2a3546; color: #d8e6ff; }
+    .body { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 0 18px 12px; scrollbar-width: thin; scrollbar-color: #465163 transparent; }
+    .scope, .site-name { padding: 9px 12px; border: 1px solid #303a49; border-radius: 9px; background: #202733; color: #b4d0ff; font-size: 12px; margin: 0 0 12px; overflow-wrap: anywhere; }
+    .site-name { color: #e9edf2; font-size: 14px; }
+    .field { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin: 0; padding: 9px 0; border-bottom: 1px solid #ffffff0d; }
+    .caption { font-weight: 400; color: #dbe2ec; min-width: 0; }
+    .field.changed > .caption { font-weight: 700; color: #fff; }
+    .field.stack { display: grid; grid-template-columns: minmax(0, 1fr); justify-content: stretch; gap: 6px; padding: 8px 0; }
+    .field.stack > .caption { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .field.stack > .caption output { font-size: 12px; font-weight: 400; color: #b4d0ff; font-variant-numeric: tabular-nums; }
+    select, input[type="text"], input[type="number"], input[type="time"] { width: 156px; min-width: 0; max-width: 54%; border: 1px solid #414b5b;
+        border-radius: 7px; padding: 6px 8px; background: #222936; font-size: 13px; }
+    select { padding-right: 3px; }
+    input[type="range"] { width: 100%; margin: 0; accent-color: #9dc2ff; cursor: pointer; }
+    input[type="color"] { width: 44px; height: 30px; padding: 3px; background: #222936; border: 1px solid #414b5b; border-radius: 7px; cursor: pointer; }
+    input[type="checkbox"] { appearance: none; flex-shrink: 0; position: relative; width: 34px; height: 20px; border: 1px solid #667184;
+        margin: 0; border-radius: 12px; background: #343e4d; cursor: pointer; }
+    input[type="checkbox"]::before { content: ''; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px;
+        border-radius: 50%; background: #c1cad6; transition: transform .12s; }
+    input[type="checkbox"]:checked { background: #9dc2ff; border-color: #9dc2ff; }
+    input[type="checkbox"]:checked::before { background: #17263b; transform: translateX(14px); }
+    .hint { margin: 8px 0 12px; color: #a8b4c5; font-size: 12px; line-height: 1.6; }
+    details { margin-top: 14px; padding: 0 12px; border: 1px solid #353d49; border-radius: 10px; background: #1c222c; }
+    summary { padding: 11px 0; color: #dbe2ec; font-size: 13px; cursor: pointer; }
+    .group-title { margin: 14px 0 1px; font-size: 12px; font-weight: 500; color: #a8b4c5; }
+    footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 18px; border-top: 1px solid #353d49; background: #151921; }
+    .live-note { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #a8b4c5; }
+    .live-note::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #8ecdb1; flex-shrink: 0; }
+    .initialize { padding: 6px 10px; border: 1px solid #414b5b; border-radius: 7px; background: transparent; font-size: 12px; color: #c4cfdf; }
+    .initialize:hover { background: #29313e; color: #fff; }
+    .status { margin: 0; padding: 10px 18px; font-size: 12px; color: #ffb4b4; background: #42282e; }
+    :is(button, input, select, summary):focus-visible { outline: 2px solid #9dc2ff; outline-offset: 3px; }
+    [aria-invalid="true"] { border-color: #ffa8a8 !important; }
+    @media (max-width: 420px) { :host { top: 8px !important; right: 8px !important; width: calc(100vw - 16px) !important; }
+        .panel { max-height: calc(100dvh - 16px); border-radius: 14px; }
+        header { padding-top: 14px; } }
+    @media (prefers-reduced-motion: reduce) { input[type="checkbox"]::before { transition: none; } }
+`;
+
+    const HOST_ID = 'blackcat-settings-panel';
+    let activePanel = null;
+
+    function openSettingsPanel({settings, hostname, onChange}) {
+        if (activePanel?.host.isConnected) {
+            activePanel.focus();
+            return activePanel;
+        }
+        activePanel?.close();
+        hostname = hostname.toLowerCase();
+        let current = normalizeSettings(settings);
+        let activeTab = 'theme';
+        let revision = 0;
+        let storageError = false;
+        const controls = new Map();
+        const messages = [];
+        const pages = new Map();
+        const tabs = new Map();
+        const t = (key, values) => translate(key, resolveLanguage(current.language), values);
+        const element = (tag, className, parent) => {
+            const node = document.createElement(tag);
+            if (className) node.className = className;
+            parent?.append(node);
+            return node;
+        };
+        const message = (node, key, values) => {
+            messages.push({node, key, values});
+            node.textContent = t(key, values);
+            return node;
+        };
+        const host = element('div');
+        host.id = HOST_ID;
+        const shadow = host.attachShadow({mode: 'open'});
+        // The UI is already dark; exclude its stylesheet from Dark Reader recoloring.
+        const style = element('style', 'darkreader darkreader--blackcat-ui', shadow);
+        style.textContent = PANEL_STYLE;
+        const panel = element('section', 'panel', shadow);
+        panel.setAttribute('role', 'dialog');
+        panel.setAttribute('aria-labelledby', 'blackcat-title');
+        panel.tabIndex = -1;
+        const header = element('header', '', panel);
+        element('span', 'brand', header).textContent = 'B';
+        const title = element('div', '', header);
+        const heading = element('h1', '', title);
+        heading.id = 'blackcat-title';
+        heading.textContent = 'Blackcat';
+        message(element('p', 'subtitle', title), 'panel.subtitle');
+        const closeButton = element('button', 'close', header);
+        closeButton.type = 'button';
+        closeButton.dataset.action = 'close';
+        closeButton.textContent = '×';
+        const tabList = element('nav', 'tabs', panel);
+        tabList.setAttribute('role', 'tablist');
+        const body = element('div', 'body', panel);
+        const status = element('p', 'status', panel);
+        status.setAttribute('role', 'status');
+        status.hidden = true;
+
+        const selectTab = (name, focus = false) => {
+            activeTab = name;
+            for (const [key, tab] of tabs) {
+                const selected = key === name;
+                tab.setAttribute('aria-selected', String(selected));
+                tab.tabIndex = selected ? 0 : -1;
+                pages.get(key).hidden = !selected;
+            }
+            body.scrollTop = 0;
+            if (focus) tabs.get(name).focus();
+        };
+        for (const [key, label] of [['theme', 'panel.theme'], ['site', 'panel.siteTab'], ['automation', 'panel.automation'], ['general', 'panel.general']]) {
+            const tab = message(element('button', 'tab', tabList), label);
+            tab.type = 'button';
+            tab.dataset.tab = key;
+            tab.id = `blackcat-tab-${key}`;
+            tab.setAttribute('role', 'tab');
+            tab.setAttribute('aria-controls', `blackcat-page-${key}`);
+            const page = element('div', '', body);
+            page.id = `blackcat-page-${key}`;
+            page.dataset.page = key;
+            page.setAttribute('role', 'tabpanel');
+            page.setAttribute('aria-labelledby', tab.id);
+            tabs.set(key, tab);
+            pages.set(key, page);
+            tab.addEventListener('click', () => selectTab(key));
+            tab.addEventListener('keydown', (event) => {
+                const names = [...tabs.keys()];
+                let index = names.indexOf(key);
+                if (event.key === 'ArrowRight') index = (index + 1) % names.length;
+                else if (event.key === 'ArrowLeft') index = (index + names.length - 1) % names.length;
+                else if (event.key === 'Home') index = 0;
+                else if (event.key === 'End') index = names.length - 1;
+                else return;
+                event.preventDefault();
+                selectTab(names[index], true);
+            });
+        }
+
+        const updateStatus = () => {
+            const invalid = [...controls.values()].some((control) => control.getAttribute('aria-invalid') === 'true');
+            status.hidden = !invalid && !storageError;
+            status.textContent = invalid ? t('panel.invalidInput') : storageError ? t('panel.saveError') : '';
+        };
+        const valid = (control) => {
+            const key = control.dataset.setting;
+            if (!control.validity.valid) return false;
+            if (key === 'selectionColor' || key === 'scrollbarColor') {
+                return control.value === 'auto' || (key === 'scrollbarColor' && control.value === '') || /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(control.value);
+            }
+            return control.type !== 'time' || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(control.value);
+        };
+        const readValue = (control) => {
+            if (control.type === 'checkbox') return control.checked;
+            if (control.type === 'range' || control.dataset.setting === 'mode') return Number(control.value);
+            if (control.type === 'number') return control.value === '' ? null : Number(control.value);
+            return control.value;
+        };
+        const commit = (next) => {
+            current = next;
+            const version = ++revision;
+            refresh();
+            // The adapter applies synchronously and returns its queued storage completion.
+            try {
+                Promise.resolve(onChange(current)).then(() => {
+                    if (version === revision) { storageError = false; updateStatus(); }
+                }, () => {
+                    if (version === revision) { storageError = true; updateStatus(); }
+                });
+            } catch {
+                storageError = true;
+                updateStatus();
+            }
+        };
+        const addControl = (parent, key, labelKey, type, options = {}) => {
+            const field = element('label', type === 'range' ? 'field stack' : 'field', parent);
+            const caption = element('span', 'caption', field);
+            message(element('span', '', caption), labelKey);
+            const control = element(type === 'select' ? 'select' : 'input', '', field);
+            control.dataset.setting = key;
+            control.name = key;
+            control.id = `blackcat-control-${key}`;
+            field.htmlFor = control.id;
+            if (type === 'select') {
+                for (const [value, label] of options.choices) {
+                    const option = message(element('option', '', control), label);
+                    option.value = value;
+                }
+            } else {
+                control.type = type;
+                for (const attribute of ['min', 'max', 'step', 'maxLength']) {
+                    if (options[attribute] !== undefined) control[attribute] = options[attribute];
+                }
+                if (type === 'range') element('output', '', caption);
+            }
+            controls.set(key, control);
+            const inputEvent = ['range', 'text', 'number', 'color'].includes(type) ? 'input' : 'change';
+            control.addEventListener(inputEvent, () => {
+                if (!valid(control)) {
+                    control.setAttribute('aria-invalid', 'true');
+                    control.closest('.field').classList.remove('changed');
+                    updateStatus();
+                    return;
+                }
+                control.removeAttribute('aria-invalid');
+                commit(changePanelSetting(current, hostname, key, readValue(control)));
+            });
+            return control;
+        };
+        const addCheck = (parent, key, label) => addControl(parent, key, label, 'checkbox');
+        const addSelect = (parent, key, label, choices) => addControl(parent, key, label, 'select', {choices});
+        const hint = (parent, key) => message(element('p', 'hint', parent), key);
+        const condition = (parent, value) => {
+            const group = element('div', '', parent);
+            group.dataset.condition = value;
+            return group;
+        };
+
+        const theme = pages.get('theme');
+        const scope = element('p', 'scope', theme);
+        addSelect(theme, 'mode', 'panel.colorMode', [['1', 'panel.modeDark'], ['0', 'panel.modeDimmed']]);
+        addSelect(theme, 'engine', 'panel.engine', [['dynamicTheme', 'engine.dynamic'], ['cssFilter', 'engine.filter'], ['svgFilter', 'engine.svgFilter'], ['staticTheme', 'engine.static']]);
+        for (const [key, min, max] of [['brightness', 50, 150], ['contrast', 50, 150], ['grayscale', 0, 100], ['sepia', 0, 100]]) {
+            addControl(theme, key, `panel.${key}`, 'range', {min, max, step: 1});
+        }
+        addCheck(theme, 'styleSystemControls', 'panel.systemControls');
+        addCheck(theme, 'detectDarkTheme', 'panel.detectDark');
+        const colors = element('details', '', theme);
+        message(element('summary', '', colors), 'panel.colors');
+        for (const [titleKey, keys] of [
+            ['panel.modeDark', [['darkSchemeBackgroundColor', 'panel.background'], ['darkSchemeTextColor', 'panel.text']]],
+            ['panel.modeDimmed', [['lightSchemeBackgroundColor', 'panel.background'], ['lightSchemeTextColor', 'panel.text']]],
+        ]) {
+            message(element('h2', 'group-title', colors), titleKey);
+            for (const [key, label] of keys) addControl(colors, key, label, 'color');
+        }
+        addControl(colors, 'selectionColor', 'panel.selectionColor', 'text', {maxLength: 7});
+        addControl(colors, 'scrollbarColor', 'panel.scrollbarColor', 'text', {maxLength: 7});
+        hint(colors, 'panel.colorHelp');
+
+        const site = pages.get('site');
+        element('p', 'site-name', site).textContent = hostname;
+        addCheck(site, 'siteEnabled', 'panel.siteEnabledShort');
+        hint(site, 'panel.siteEnabledHelp');
+        addCheck(site, 'siteThemeOnly', 'panel.siteThemeShort');
+        hint(site, 'panel.siteThemeHelp');
+
+        const automation = pages.get('automation');
+        addSelect(automation, 'automation.mode', 'panel.automationMode', [['none', 'panel.automationOff'], ['system', 'panel.automationSystem'], ['time', 'panel.automationTime'], ['location', 'panel.automationLocation']]);
+        const behavior = condition(automation, 'active');
+        addSelect(behavior, 'automation.behavior', 'panel.automationBehavior', [['OnOff', 'panel.behaviorOff'], ['Scheme', 'panel.behaviorDimmed']]);
+        const schedule = condition(automation, 'time');
+        addControl(schedule, 'automation.activation', 'panel.turnOnAt', 'time');
+        addControl(schedule, 'automation.deactivation', 'panel.turnOffAt', 'time');
+        hint(schedule, 'panel.timeHelp');
+        const coordinates = condition(automation, 'location');
+        addControl(coordinates, 'location.latitude', 'panel.latitude', 'number', {min: -90, max: 90, step: 'any'});
+        addControl(coordinates, 'location.longitude', 'panel.longitude', 'number', {min: -180, max: 180, step: 'any'});
+        hint(coordinates, 'panel.locationNote');
+
+        const general = pages.get('general');
+        addCheck(general, 'enabled', 'panel.enabled');
+        addCheck(general, 'enabledByDefault', 'panel.enabledByDefault');
+        addSelect(general, 'language', 'panel.language', [['auto', 'panel.languageAuto'], ['en', 'panel.languageEnglish'], ['zh-CN', 'panel.languageChinese']]);
+        hint(general, 'panel.defaultsHelp');
+
+        const footer = element('footer', '', panel);
+        message(element('span', 'live-note', footer), 'panel.live');
+        const initialize = message(element('button', 'initialize', footer), 'panel.reset');
+        initialize.type = 'button';
+        initialize.dataset.action = 'initialize';
+        initialize.addEventListener('click', () => {
+            for (const control of controls.values()) control.removeAttribute('aria-invalid');
+            commit(changePanelSetting(current, hostname, 'initialize'));
         });
+
+        function refresh() {
+            panel.lang = resolveLanguage(current.language);
+            for (const {node, key, values} of messages) node.textContent = t(key, values);
+            closeButton.setAttribute('aria-label', t('panel.close'));
+            tabList.setAttribute('aria-label', t('panel.sections'));
+            initialize.title = t('panel.initializeHelp');
+            scope.textContent = t(getPanelValue(current, hostname, 'siteThemeOnly') ? 'panel.scopeSite' : 'panel.scopeGlobal');
+            for (const [key, control] of controls) {
+                if (control.getAttribute('aria-invalid') === 'true') continue;
+                const value = getPanelValue(current, hostname, key);
+                if (control.type === 'checkbox') control.checked = value;
+                else if (control.type === 'color' && value.length === 4) control.value = `#${[...value.slice(1)].map((character) => character + character).join('')}`;
+                else control.value = value === null ? '' : String(value);
+                const field = control.closest('.field');
+                field.classList.toggle('changed', isPanelSettingChanged(current, hostname, key));
+                const output = field.querySelector('output');
+                if (output) output.value = `${value}%`;
+            }
+            for (const group of body.querySelectorAll('[data-condition]')) {
+                const mode = current.automation.mode;
+                group.hidden = group.dataset.condition === 'active' ? mode === 'none' : group.dataset.condition !== mode;
+            }
+            updateStatus();
+        }
+        const onEscape = (event) => {
+            if (event.key === 'Escape') { event.preventDefault(); close(); }
+        };
+        const previousFocus = document.activeElement;
+        const close = () => {
+            const hadFocus = Boolean(shadow.activeElement);
+            document.removeEventListener('keydown', onEscape, true);
+            host.remove();
+            if (activePanel === api) activePanel = null;
+            if (hadFocus && previousFocus?.isConnected) previousFocus.focus();
+        };
+        const api = {
+            host,
+            close,
+            focus: () => panel.focus(),
+            update: (next) => {
+                if (!host.isConnected) return;
+                const normalized = normalizeSettings(next);
+                if (JSON.stringify(normalized) === JSON.stringify(current)) return;
+                current = normalized;
+                ++revision;
+                storageError = false;
+                for (const control of controls.values()) control.removeAttribute('aria-invalid');
+                refresh();
+            },
+        };
+        closeButton.addEventListener('click', close);
+        panel.addEventListener('click', (event) => event.stopPropagation());
+        panel.addEventListener('keydown', (event) => event.stopPropagation());
+        document.addEventListener('keydown', onEscape, true);
+        selectTab(activeTab);
+        refresh();
+        (document.documentElement || document.body).append(host);
+        activePanel = api;
         panel.focus();
+        return api;
     }
 
     const SETTINGS_KEY = 'blackcat.settings.v1';
@@ -833,15 +947,6 @@
         appliedSignature = signature;
     }
 
-    async function update(mutator) {
-        const settings = await readSettings();
-        const next = normalizeSettings(mutator(settings) || settings);
-        await persist(next);
-        apply(next);
-        scheduleAutomation(next);
-        return next;
-    }
-
     function scheduleAutomation(settings) {
         if (automationTimer !== null) {
             clearTimeout(automationTimer);
@@ -872,46 +977,44 @@
         const hostname = location.hostname.toLowerCase();
         const t = (key, values) => translate(key, resolveLanguage(settings.language), values);
 
+        let settingsPanel = null;
+        const adoptSettings = (next) => {
+            settings = next;
+            apply(settings, false);
+            scheduleAutomation(settings);
+            settingsPanel?.update(settings);
+            registerMenuCommands();
+        };
+        const commit = createSettingsCommitter({apply: adoptSettings, persist});
+        const reportSaveError = (error) => console.error('[Blackcat] Settings could not be saved:', error);
         const menuIds = [];
+        let menuSignature = null;
         const registerMenuCommands = () => {
+            const signature = JSON.stringify([resolveLanguage(settings.language), resolveSiteEnabled(settings, location.href), settings.enabled, settings.mode]);
+            if (signature === menuSignature) return;
             if (menuIds.length > 0) {
                 if (typeof unregisterMenu !== 'function' || menuIds.some((id) => id === undefined || id === null)) return;
                 for (const id of menuIds) unregisterMenu(id);
                 menuIds.length = 0;
             }
+            menuSignature = signature;
 
             menuIds.push(register(t('menu.site', {
                 status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
-            }), async () => {
-                settings = await update((current) => setSiteOverride(
-                    current,
-                    hostname,
-                    !resolveSiteEnabled(current, location.href),
-                ));
-                registerMenuCommands();
+            }), () => {
+                void commit(setSiteOverride(settings, hostname, !resolveSiteEnabled(settings, location.href))).catch(reportSaveError);
             }));
             menuIds.push(register(t('menu.global', {
                 status: t(settings.enabled ? 'state.enabled' : 'state.disabled'),
-            }), async () => {
-                settings = await update((current) => ({...current, enabled: !current.enabled}));
-                registerMenuCommands();
+            }), () => {
+                void commit({...settings, enabled: !settings.enabled}).catch(reportSaveError);
             }));
-            menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
-                settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
-                registerMenuCommands();
+            menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), () => {
+                void commit({...settings, mode: settings.mode ? 0 : 1}).catch(reportSaveError);
             }));
-            menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
-                settings,
-                hostname,
-                language: resolveLanguage(settings.language),
-                onSave: async (next) => {
-                    settings = normalizeSettings(next);
-                    await persist(settings);
-                    apply(settings);
-                    scheduleAutomation(settings);
-                    registerMenuCommands();
-                },
-            })));
+            menuIds.push(register(t('menu.settings'), () => {
+                settingsPanel = openSettingsPanel({settings, hostname, onChange: commit});
+            }));
         };
         registerMenuCommands();
 
@@ -921,10 +1024,7 @@
         if (typeof addValueListener === 'function') {
             addValueListener(SETTINGS_KEY, (_key, _oldValue, newValue, remote) => {
                 if (remote && newValue) {
-                    settings = normalizeSettings(newValue);
-                    apply(settings);
-                    scheduleAutomation(settings);
-                    registerMenuCommands();
+                    adoptSettings(normalizeSettings(newValue));
                 }
             });
         }

@@ -231,11 +231,9 @@ export function setSiteOverride(settings, hostname, enabled) {
     const current = normalizeSettings(settings);
     const siteOverrides = {...current.siteOverrides};
     const key = hostname.toLowerCase();
-    if (enabled === current.enabledByDefault) {
-        delete siteOverrides[key];
-    } else {
-        siteOverrides[key] = enabled;
-    }
+    delete siteOverrides[key];
+    const inherited = resolveSiteEnabled({...current, siteOverrides}, `https://${key}/`);
+    if (enabled !== inherited) siteOverrides[key] = enabled;
     return normalizeSettings({...current, siteOverrides});
 }
 

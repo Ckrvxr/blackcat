@@ -37,14 +37,21 @@ test('userscript bundle includes the requested Chinese menu labels and settings 
     assert.ok(script.includes('🌐 此网站上: {status}'));
     assert.ok(script.includes('🌗 色彩模式：{mode}'));
     assert.doesNotMatch(script, /色彩模式：\{mode\}（切换）/);
-    assert.ok(script.includes('启用选项'));
-    assert.ok(script.includes('恢复默认设置'));
+    assert.ok(script.includes('即时生效 · 自动保存'));
+    assert.ok(script.includes('初始化'));
 });
 
 test('settings UI supports language selection without adding a menu command', () => {
     assert.ok(script.includes('panel.language'));
     assert.ok(script.includes('简体中文'));
-    assert.ok(script.includes('Automatic (browser language)'));
+    assert.ok(script.includes('Follow browser'));
+});
+
+test('floating settings bundle has no modal or save/cancel workflow', () => {
+    assert.ok(script.includes("'tablist'"));
+    assert.ok(script.includes('dataset.setting'));
+    assert.doesNotMatch(script, /panel\.(?:save|cancel)'/);
+    assert.doesNotMatch(script, /className = 'backdrop'|aria-modal/);
 });
 
 test('userscript adapter no longer exposes font or text stroke settings', () => {

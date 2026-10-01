@@ -1,6 +1,7 @@
 import {DEFAULT_SETTINGS, normalizeSettings, resolveAutomationState, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, toThemeOptions} from './settings.mjs';
 import {openSettingsPanel} from './settings-panel.mjs';
 import {resolveLanguage, translate} from './i18n.mjs';
+import {createSettingsCommitter} from './settings-panel-state.mjs';
 
 const SETTINGS_KEY = 'blackcat.settings.v1';
 const ENGINE = globalThis.BlackcatDarkReaderEngine;
@@ -60,15 +61,6 @@ function apply(settings, force = true) {
     appliedSignature = signature;
 }
 
-async function update(mutator) {
-    const settings = await readSettings();
-    const next = normalizeSettings(mutator(settings) || settings);
-    await persist(next);
-    apply(next);
-    scheduleAutomation(next);
-    return next;
-}
-
 function scheduleAutomation(settings) {
     if (automationTimer !== null) {
         clearTimeout(automationTimer);
@@ -99,46 +91,44 @@ async function start() {
     const hostname = location.hostname.toLowerCase();
     const t = (key, values) => translate(key, resolveLanguage(settings.language), values);
 
+    let settingsPanel = null;
+    const adoptSettings = (next) => {
+        settings = next;
+        apply(settings, false);
+        scheduleAutomation(settings);
+        settingsPanel?.update(settings);
+        registerMenuCommands();
+    };
+    const commit = createSettingsCommitter({apply: adoptSettings, persist});
+    const reportSaveError = (error) => console.error('[Blackcat] Settings could not be saved:', error);
     const menuIds = [];
+    let menuSignature = null;
     const registerMenuCommands = () => {
+        const signature = JSON.stringify([resolveLanguage(settings.language), resolveSiteEnabled(settings, location.href), settings.enabled, settings.mode]);
+        if (signature === menuSignature) return;
         if (menuIds.length > 0) {
             if (typeof unregisterMenu !== 'function' || menuIds.some((id) => id === undefined || id === null)) return;
             for (const id of menuIds) unregisterMenu(id);
             menuIds.length = 0;
         }
+        menuSignature = signature;
 
         menuIds.push(register(t('menu.site', {
             status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
-        }), async () => {
-            settings = await update((current) => setSiteOverride(
-                current,
-                hostname,
-                !resolveSiteEnabled(current, location.href),
-            ));
-            registerMenuCommands();
+        }), () => {
+            void commit(setSiteOverride(settings, hostname, !resolveSiteEnabled(settings, location.href))).catch(reportSaveError);
         }));
         menuIds.push(register(t('menu.global', {
             status: t(settings.enabled ? 'state.enabled' : 'state.disabled'),
-        }), async () => {
-            settings = await update((current) => ({...current, enabled: !current.enabled}));
-            registerMenuCommands();
+        }), () => {
+            void commit({...settings, enabled: !settings.enabled}).catch(reportSaveError);
         }));
-        menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
-            settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
-            registerMenuCommands();
+        menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), () => {
+            void commit({...settings, mode: settings.mode ? 0 : 1}).catch(reportSaveError);
         }));
-        menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
-            settings,
-            hostname,
-            language: resolveLanguage(settings.language),
-            onSave: async (next) => {
-                settings = normalizeSettings(next);
-                await persist(settings);
-                apply(settings);
-                scheduleAutomation(settings);
-                registerMenuCommands();
-            },
-        })));
+        menuIds.push(register(t('menu.settings'), () => {
+            settingsPanel = openSettingsPanel({settings, hostname, onChange: commit});
+        }));
     };
     registerMenuCommands();
 
@@ -148,10 +138,7 @@ async function start() {
     if (typeof addValueListener === 'function') {
         addValueListener(SETTINGS_KEY, (_key, _oldValue, newValue, remote) => {
             if (remote && newValue) {
-                settings = normalizeSettings(newValue);
-                apply(settings);
-                scheduleAutomation(settings);
-                registerMenuCommands();
+                adoptSettings(normalizeSettings(newValue));
             }
         });
     }

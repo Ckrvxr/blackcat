@@ -1,7 +1,8 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
     <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>Blackcat engine smoke test</title>
     <style>
         html, body { min-height: 100%; background: #fff; color: #000; }
@@ -11,11 +12,20 @@
 <body>
     <main id="sample">A bright page for Dark Reader injection testing.</main>
     <script>
+        globalThis.blackcatRuntimeErrors = [];
+        addEventListener('error', (event) => blackcatRuntimeErrors.push(event.message));
+        addEventListener('unhandledrejection', (event) => blackcatRuntimeErrors.push(String(event.reason)));
         const requestedLanguage = new URLSearchParams(location.search).get('lang');
         if (requestedLanguage) Object.defineProperty(navigator, 'language', {value: requestedLanguage, configurable: true});
         const blackcatStore = new Map();
         globalThis.GM_getValue = (key, fallback) => blackcatStore.has(key) ? blackcatStore.get(key) : fallback;
-        globalThis.GM_setValue = (key, value) => blackcatStore.set(key, value);
+        globalThis.blackcatStoredSettings = () => blackcatStore.get('blackcat.settings.v1');
+        globalThis.GM_setValue = async (key, value) => {
+            const delay = globalThis.blackcatStorageDelay || 0;
+            if (delay) await new Promise((resolve) => setTimeout(resolve, delay));
+            if (globalThis.blackcatStorageFailure) throw new Error('Test storage failure');
+            blackcatStore.set(key, structuredClone(value));
+        };
         const registeredMenuCommands = new Map();
         let nextMenuId = 0;
         globalThis.GM_registerMenuCommand = (label, callback) => {
@@ -29,9 +39,22 @@
             if (label) delete globalThis.blackcatCommands[label];
             registeredMenuCommands.delete(id);
         };
-        globalThis.GM_addValueChangeListener = () => 1;
+        let valueListener;
+        globalThis.GM_addValueChangeListener = (_key, listener) => { valueListener = listener; return 1; };
+        globalThis.blackcatRemoteSettings = (settings) => {
+            blackcatStore.set('blackcat.settings.v1', settings);
+            valueListener?.('blackcat.settings.v1', undefined, settings, true);
+        };
     </script>
     <script src="/dist/engine.js"></script>
+    <script>
+        const engineAPI = globalThis.BlackcatDarkReaderEngine;
+        globalThis.blackcatThemeApplications = [];
+        globalThis.BlackcatDarkReaderEngine = {...engineAPI, apply(options) {
+            blackcatThemeApplications.push(structuredClone(options));
+            engineAPI.apply(options);
+        }};
+    </script>
     <script src="/dist/blackcat.user.js"></script>
 </body>
 </html>

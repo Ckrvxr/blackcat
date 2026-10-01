@@ -1,344 +1,300 @@
-import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, setSiteTheme} from './settings.mjs';
+import {normalizeSettings} from './settings.mjs';
 import {resolveLanguage, translate} from './i18n.mjs';
+import {changePanelSetting, getPanelValue, isPanelSettingChanged} from './settings-panel-state.mjs';
+import {PANEL_STYLE} from './settings-panel-style.mjs';
 
 const HOST_ID = 'blackcat-settings-panel';
+let activePanel = null;
 
-const THEME_SETTING_KEYS = [
-    'engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia',
-    'styleSystemControls', 'detectDarkTheme', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
-    'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor',
-];
-const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia']);
-
-export function openSettingsPanel({settings, hostname, onSave, language = resolveLanguage(settings.language)}) {
-    const t = (key, values) => translate(key, language, values);
-    const themeSettings = resolveThemeForSite(settings, location.href);
-    const hasSiteTheme = Object.hasOwn(settings.siteThemes, hostname.toLowerCase());
-    const existing = document.getElementById(HOST_ID);
-    if (existing) {
-        existing.shadowRoot?.querySelector('[role="dialog"]')?.focus();
-        return;
+export function openSettingsPanel({settings, hostname, onChange}) {
+    if (activePanel?.host.isConnected) {
+        activePanel.focus();
+        return activePanel;
     }
-
-    const host = document.createElement('div');
+    activePanel?.close();
+    hostname = hostname.toLowerCase();
+    let current = normalizeSettings(settings);
+    let activeTab = 'theme';
+    let revision = 0;
+    let storageError = false;
+    const controls = new Map();
+    const messages = [];
+    const pages = new Map();
+    const tabs = new Map();
+    const t = (key, values) => translate(key, resolveLanguage(current.language), values);
+    const element = (tag, className, parent) => {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        parent?.append(node);
+        return node;
+    };
+    const message = (node, key, values) => {
+        messages.push({node, key, values});
+        node.textContent = t(key, values);
+        return node;
+    };
+    const host = element('div');
     host.id = HOST_ID;
     const shadow = host.attachShadow({mode: 'open'});
-    const style = document.createElement('style');
-    style.textContent = `
-        :host { all: initial; color-scheme: dark; font: 14px/1.45 system-ui, sans-serif; }
-        * { box-sizing: border-box; }
-        .backdrop { position: fixed; inset: 0; z-index: 2147483647; display: grid; place-items: center; padding: 16px; background: #0009; }
-        .panel { width: min(560px, 100%); max-height: min(860px, 94vh); overflow: auto; padding: 22px; color: #e8e6e3; background: #181a1b; border: 1px solid #454a4d; border-radius: 12px; box-shadow: 0 12px 48px #0009; }
-        h1 { margin: 0 0 16px; font-size: 20px; }
-        h2 { margin: 20px 0 8px; font-size: 14px; color: #b8c0c5; }
-        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-        label { display: grid; gap: 5px; margin: 9px 0; color: #d5dadd; }
-        label.check { display: flex; align-items: center; gap: 9px; }
-        input, select, button { color: inherit; font: inherit; }
-        input[type="text"], input[type="time"], select { min-width: 0; width: 100%; padding: 8px; border: 1px solid #596168; border-radius: 6px; background: #25292c; }
-        input[type="range"] { width: 100%; accent-color: #8ab4f8; }
-        input[type="color"] { width: 48px; height: 30px; padding: 2px; border: 1px solid #596168; border-radius: 5px; background: #25292c; }
-        input[type="checkbox"] { width: 16px; height: 16px; accent-color: #8ab4f8; }
-        output { float: right; color: #aeb8bf; font-variant-numeric: tabular-nums; }
-        .actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 22px; }
-        button { padding: 8px 14px; border: 1px solid #596168; border-radius: 6px; background: #25292c; cursor: pointer; }
-        button.primary { border-color: #8ab4f8; color: #101820; background: #8ab4f8; }
-        button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid #8ab4f8; outline-offset: 2px; }
-        @media (max-width: 460px) { .grid { grid-template-columns: 1fr; } .panel { padding: 16px; } }
-    `;
-
-    const backdrop = document.createElement('div');
-    backdrop.className = 'backdrop';
-    const panel = document.createElement('section');
-    panel.className = 'panel';
+    // The UI is already dark; exclude its stylesheet from Dark Reader recoloring.
+    const style = element('style', 'darkreader darkreader--blackcat-ui', shadow);
+    style.textContent = PANEL_STYLE;
+    const panel = element('section', 'panel', shadow);
     panel.setAttribute('role', 'dialog');
-    panel.setAttribute('lang', language);
-    panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-labelledby', 'blackcat-title');
     panel.tabIndex = -1;
-
-    const heading = document.createElement('h1');
+    const header = element('header', '', panel);
+    element('span', 'brand', header).textContent = 'B';
+    const title = element('div', '', header);
+    const heading = element('h1', '', title);
     heading.id = 'blackcat-title';
-    heading.textContent = t('panel.title');
-    const status = document.createElement('p');
+    heading.textContent = 'Blackcat';
+    message(element('p', 'subtitle', title), 'panel.subtitle');
+    const closeButton = element('button', 'close', header);
+    closeButton.type = 'button';
+    closeButton.dataset.action = 'close';
+    closeButton.textContent = '×';
+    const tabList = element('nav', 'tabs', panel);
+    tabList.setAttribute('role', 'tablist');
+    const body = element('div', 'body', panel);
+    const status = element('p', 'status', panel);
     status.setAttribute('role', 'status');
     status.hidden = true;
-    panel.append(heading, status);
 
-    const form = document.createElement('form');
-    const controls = {};
-    const addText = (parent, text, tag = 'h2') => {
-        const element = document.createElement(tag);
-        element.textContent = text;
-        parent.append(element);
-        return element;
+    const selectTab = (name, focus = false) => {
+        activeTab = name;
+        for (const [key, tab] of tabs) {
+            const selected = key === name;
+            tab.setAttribute('aria-selected', String(selected));
+            tab.tabIndex = selected ? 0 : -1;
+            pages.get(key).hidden = !selected;
+        }
+        body.scrollTop = 0;
+        if (focus) tabs.get(name).focus();
     };
-    const addField = (parent, labelText, control) => {
-        const label = document.createElement('label');
-        const caption = document.createElement('span');
-        caption.textContent = labelText;
-        label.append(caption, control);
-        parent.append(label);
+    for (const [key, label] of [['theme', 'panel.theme'], ['site', 'panel.siteTab'], ['automation', 'panel.automation'], ['general', 'panel.general']]) {
+        const tab = message(element('button', 'tab', tabList), label);
+        tab.type = 'button';
+        tab.dataset.tab = key;
+        tab.id = `blackcat-tab-${key}`;
+        tab.setAttribute('role', 'tab');
+        tab.setAttribute('aria-controls', `blackcat-page-${key}`);
+        const page = element('div', '', body);
+        page.id = `blackcat-page-${key}`;
+        page.dataset.page = key;
+        page.setAttribute('role', 'tabpanel');
+        page.setAttribute('aria-labelledby', tab.id);
+        tabs.set(key, tab);
+        pages.set(key, page);
+        tab.addEventListener('click', () => selectTab(key));
+        tab.addEventListener('keydown', (event) => {
+            const names = [...tabs.keys()];
+            let index = names.indexOf(key);
+            if (event.key === 'ArrowRight') index = (index + 1) % names.length;
+            else if (event.key === 'ArrowLeft') index = (index + names.length - 1) % names.length;
+            else if (event.key === 'Home') index = 0;
+            else if (event.key === 'End') index = names.length - 1;
+            else return;
+            event.preventDefault();
+            selectTab(names[index], true);
+        });
+    }
+
+    const updateStatus = () => {
+        const invalid = [...controls.values()].some((control) => control.getAttribute('aria-invalid') === 'true');
+        status.hidden = !invalid && !storageError;
+        status.textContent = invalid ? t('panel.invalidInput') : storageError ? t('panel.saveError') : '';
+    };
+    const valid = (control) => {
+        const key = control.dataset.setting;
+        if (!control.validity.valid) return false;
+        if (key === 'selectionColor' || key === 'scrollbarColor') {
+            return control.value === 'auto' || (key === 'scrollbarColor' && control.value === '') || /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(control.value);
+        }
+        return control.type !== 'time' || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(control.value);
+    };
+    const readValue = (control) => {
+        if (control.type === 'checkbox') return control.checked;
+        if (control.type === 'range' || control.dataset.setting === 'mode') return Number(control.value);
+        if (control.type === 'number') return control.value === '' ? null : Number(control.value);
+        return control.value;
+    };
+    const commit = (next) => {
+        current = next;
+        const version = ++revision;
+        refresh();
+        // The adapter applies synchronously and returns its queued storage completion.
+        try {
+            Promise.resolve(onChange(current)).then(() => {
+                if (version === revision) { storageError = false; updateStatus(); }
+            }, () => {
+                if (version === revision) { storageError = true; updateStatus(); }
+            });
+        } catch {
+            storageError = true;
+            updateStatus();
+        }
+    };
+    const addControl = (parent, key, labelKey, type, options = {}) => {
+        const field = element('label', type === 'range' ? 'field stack' : 'field', parent);
+        const caption = element('span', 'caption', field);
+        message(element('span', '', caption), labelKey);
+        const control = element(type === 'select' ? 'select' : 'input', '', field);
+        control.dataset.setting = key;
+        control.name = key;
+        control.id = `blackcat-control-${key}`;
+        field.htmlFor = control.id;
+        if (type === 'select') {
+            for (const [value, label] of options.choices) {
+                const option = message(element('option', '', control), label);
+                option.value = value;
+            }
+        } else {
+            control.type = type;
+            for (const attribute of ['min', 'max', 'step', 'maxLength']) {
+                if (options[attribute] !== undefined) control[attribute] = options[attribute];
+            }
+            if (type === 'range') element('output', '', caption);
+        }
+        controls.set(key, control);
+        const inputEvent = ['range', 'text', 'number', 'color'].includes(type) ? 'input' : 'change';
+        control.addEventListener(inputEvent, () => {
+            if (!valid(control)) {
+                control.setAttribute('aria-invalid', 'true');
+                control.closest('.field').classList.remove('changed');
+                updateStatus();
+                return;
+            }
+            control.removeAttribute('aria-invalid');
+            commit(changePanelSetting(current, hostname, key, readValue(control)));
+        });
         return control;
     };
-    const addCheck = (parent, labelText, key, value) => {
-        const label = document.createElement('label');
-        label.className = 'check';
-        const input = document.createElement('input');
-        input.type = 'checkbox';
-        input.checked = Boolean(value);
-        const caption = document.createElement('span');
-        caption.textContent = labelText;
-        label.append(input, caption);
-        parent.append(label);
-        controls[key] = input;
-        return input;
+    const addCheck = (parent, key, label) => addControl(parent, key, label, 'checkbox');
+    const addSelect = (parent, key, label, choices) => addControl(parent, key, label, 'select', {choices});
+    const hint = (parent, key) => message(element('p', 'hint', parent), key);
+    const condition = (parent, value) => {
+        const group = element('div', '', parent);
+        group.dataset.condition = value;
+        return group;
     };
-    const addSelect = (parent, labelText, key, value, choices) => {
-        const select = document.createElement('select');
-        for (const [optionValue, optionLabel] of choices) {
-            const option = document.createElement('option');
-            option.value = optionValue;
-            option.textContent = optionLabel;
-            select.append(option);
-        }
-        select.value = String(value);
-        controls[key] = select;
-        return addField(parent, labelText, select);
-    };
-    const addRange = (parent, labelText, key, value, min, max, step, suffix = '') => {
-        const label = document.createElement('label');
-        const caption = document.createElement('span');
-        const output = document.createElement('output');
-        const input = document.createElement('input');
-        input.type = 'range';
-        input.min = String(min);
-        input.max = String(max);
-        input.step = String(step);
-        input.value = String(value);
-        output.value = `${value}${suffix}`;
-        input.addEventListener('input', () => {
-            output.value = `${input.value}${suffix}`;
-        });
-        caption.textContent = labelText;
-        caption.append(output);
-        label.append(caption, input);
-        parent.append(label);
-        controls[key] = input;
-    };
-    const grid = document.createElement('div');
-    grid.className = 'grid';
 
-    addSelect(form, t('panel.language'), 'language', settings.language, [
-        ['auto', t('panel.languageAuto')],
-        ['en', t('panel.languageEnglish')],
-        ['zh-CN', t('panel.languageChinese')],
-    ]);
-    addText(form, t('panel.enablement'));
-    addCheck(form, t('panel.enabled'), 'enabled', settings.enabled);
-    addCheck(form, t('panel.enabledByDefault'), 'enabledByDefault', settings.enabledByDefault);
-    addCheck(form, t('panel.siteEnabled', {hostname}), 'siteEnabled', resolveSiteEnabled(settings, location.href));
-    addCheck(form, t('panel.siteTheme'), 'siteThemeOnly', hasSiteTheme);
-
-    addText(form, t('panel.theme'));
-    addSelect(grid, t('panel.engine'), 'engine', themeSettings.engine, [
-        ['dynamicTheme', t('engine.dynamic')],
-        ['cssFilter', t('engine.filter')],
-        ['svgFilter', t('engine.svgFilter')],
-        ['staticTheme', t('engine.static')],
-    ]);
-    addSelect(grid, t('panel.colorMode'), 'mode', themeSettings.mode, [['1', t('panel.modeDark')], ['0', t('panel.modeDimmed')]]);
-    form.append(grid);
-    addRange(form, t('panel.brightness'), 'brightness', themeSettings.brightness, 50, 150, 1, '%');
-    addRange(form, t('panel.contrast'), 'contrast', themeSettings.contrast, 50, 150, 1, '%');
-    addRange(form, t('panel.grayscale'), 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
-    addRange(form, t('panel.sepia'), 'sepia', themeSettings.sepia, 0, 100, 1, '%');
-    addCheck(form, t('panel.systemControls'), 'styleSystemControls', themeSettings.styleSystemControls);
-    addCheck(form, t('panel.detectDark'), 'detectDarkTheme', themeSettings.detectDarkTheme);
-
-    addText(form, t('panel.colors'));
-    const colorGrid = document.createElement('div');
-    colorGrid.className = 'grid';
-    for (const [key, labelText] of [
-        ['darkSchemeBackgroundColor', t('panel.darkBackground')],
-        ['darkSchemeTextColor', t('panel.darkText')],
-        ['lightSchemeBackgroundColor', t('panel.dimmedBackground')],
-        ['lightSchemeTextColor', t('panel.dimmedText')],
-    ]) {
-        const input = document.createElement('input');
-        input.type = 'color';
-        input.value = themeSettings[key].length === 4 ? `#${[...themeSettings[key].slice(1)].map((c) => c + c).join('')}` : themeSettings[key];
-        controls[key] = addField(colorGrid, labelText, input);
+    const theme = pages.get('theme');
+    const scope = element('p', 'scope', theme);
+    addSelect(theme, 'mode', 'panel.colorMode', [['1', 'panel.modeDark'], ['0', 'panel.modeDimmed']]);
+    addSelect(theme, 'engine', 'panel.engine', [['dynamicTheme', 'engine.dynamic'], ['cssFilter', 'engine.filter'], ['svgFilter', 'engine.svgFilter'], ['staticTheme', 'engine.static']]);
+    for (const [key, min, max] of [['brightness', 50, 150], ['contrast', 50, 150], ['grayscale', 0, 100], ['sepia', 0, 100]]) {
+        addControl(theme, key, `panel.${key}`, 'range', {min, max, step: 1});
     }
-    const selection = document.createElement('input');
-    selection.type = 'text';
-    selection.maxLength = 9;
-    selection.value = themeSettings.selectionColor;
-    controls.selectionColor = addField(colorGrid, t('panel.selectionColor'), selection);
-    const scrollbar = document.createElement('input');
-    scrollbar.type = 'text';
-    scrollbar.maxLength = 9;
-    scrollbar.value = themeSettings.scrollbarColor;
-    controls.scrollbarColor = addField(colorGrid, t('panel.scrollbarColor'), scrollbar);
-    form.append(colorGrid);
+    addCheck(theme, 'styleSystemControls', 'panel.systemControls');
+    addCheck(theme, 'detectDarkTheme', 'panel.detectDark');
+    const colors = element('details', '', theme);
+    message(element('summary', '', colors), 'panel.colors');
+    for (const [titleKey, keys] of [
+        ['panel.modeDark', [['darkSchemeBackgroundColor', 'panel.background'], ['darkSchemeTextColor', 'panel.text']]],
+        ['panel.modeDimmed', [['lightSchemeBackgroundColor', 'panel.background'], ['lightSchemeTextColor', 'panel.text']]],
+    ]) {
+        message(element('h2', 'group-title', colors), titleKey);
+        for (const [key, label] of keys) addControl(colors, key, label, 'color');
+    }
+    addControl(colors, 'selectionColor', 'panel.selectionColor', 'text', {maxLength: 7});
+    addControl(colors, 'scrollbarColor', 'panel.scrollbarColor', 'text', {maxLength: 7});
+    hint(colors, 'panel.colorHelp');
 
-    addText(form, t('panel.automation'));
-    addSelect(form, t('panel.automationMode'), 'automationMode', settings.automation.mode, [
-        ['none', t('panel.automationOff')],
-        ['system', t('panel.automationSystem')],
-        ['time', t('panel.automationTime')],
-        ['location', t('panel.automationLocation')],
-    ]);
-    addSelect(form, t('panel.automationBehavior'), 'automationBehavior', settings.automation.behavior, [
-        ['OnOff', t('panel.behaviorOff')],
-        ['Scheme', t('panel.behaviorDimmed')],
-    ]);
-    const timeGrid = document.createElement('div');
-    timeGrid.className = 'grid';
-    const activation = document.createElement('input');
-    activation.type = 'time';
-    activation.value = settings.automation.activation;
-    controls.activation = addField(timeGrid, t('panel.turnOnAt'), activation);
-    const deactivation = document.createElement('input');
-    deactivation.type = 'time';
-    deactivation.value = settings.automation.deactivation;
-    controls.deactivation = addField(timeGrid, t('panel.turnOffAt'), deactivation);
-    form.append(timeGrid);
-    const locationNote = document.createElement('p');
-    locationNote.textContent = t('panel.locationNote');
-    form.append(locationNote);
-    const locationGrid = document.createElement('div');
-    locationGrid.className = 'grid';
-    const latitude = document.createElement('input');
-    latitude.type = 'number';
-    latitude.min = '-90';
-    latitude.max = '90';
-    latitude.step = 'any';
-    latitude.value = settings.location.latitude ?? '';
-    controls.latitude = addField(locationGrid, t('panel.latitude'), latitude);
-    const longitude = document.createElement('input');
-    longitude.type = 'number';
-    longitude.min = '-180';
-    longitude.max = '180';
-    longitude.step = 'any';
-    longitude.value = settings.location.longitude ?? '';
-    controls.longitude = addField(locationGrid, t('panel.longitude'), longitude);
-    form.append(locationGrid);
+    const site = pages.get('site');
+    element('p', 'site-name', site).textContent = hostname;
+    addCheck(site, 'siteEnabled', 'panel.siteEnabledShort');
+    hint(site, 'panel.siteEnabledHelp');
+    addCheck(site, 'siteThemeOnly', 'panel.siteThemeShort');
+    hint(site, 'panel.siteThemeHelp');
 
-    const actions = document.createElement('div');
-    actions.className = 'actions';
-    const reset = document.createElement('button');
-    reset.type = 'button';
-    reset.textContent = t('panel.reset');
-    const cancel = document.createElement('button');
-    cancel.type = 'button';
-    cancel.textContent = t('panel.cancel');
-    const save = document.createElement('button');
-    save.type = 'submit';
-    save.className = 'primary';
-    save.textContent = t('panel.save');
-    actions.append(reset, cancel, save);
-    form.append(actions);
-    panel.append(form);
-    backdrop.append(panel);
-    shadow.append(style, backdrop);
-    (document.documentElement || document.body).append(host);
+    const automation = pages.get('automation');
+    addSelect(automation, 'automation.mode', 'panel.automationMode', [['none', 'panel.automationOff'], ['system', 'panel.automationSystem'], ['time', 'panel.automationTime'], ['location', 'panel.automationLocation']]);
+    const behavior = condition(automation, 'active');
+    addSelect(behavior, 'automation.behavior', 'panel.automationBehavior', [['OnOff', 'panel.behaviorOff'], ['Scheme', 'panel.behaviorDimmed']]);
+    const schedule = condition(automation, 'time');
+    addControl(schedule, 'automation.activation', 'panel.turnOnAt', 'time');
+    addControl(schedule, 'automation.deactivation', 'panel.turnOffAt', 'time');
+    hint(schedule, 'panel.timeHelp');
+    const coordinates = condition(automation, 'location');
+    addControl(coordinates, 'location.latitude', 'panel.latitude', 'number', {min: -90, max: 90, step: 'any'});
+    addControl(coordinates, 'location.longitude', 'panel.longitude', 'number', {min: -180, max: 180, step: 'any'});
+    hint(coordinates, 'panel.locationNote');
 
-    const close = () => host.remove();
-    cancel.addEventListener('click', close);
-    backdrop.addEventListener('click', (event) => {
-        if (event.target === backdrop) close();
+    const general = pages.get('general');
+    addCheck(general, 'enabled', 'panel.enabled');
+    addCheck(general, 'enabledByDefault', 'panel.enabledByDefault');
+    addSelect(general, 'language', 'panel.language', [['auto', 'panel.languageAuto'], ['en', 'panel.languageEnglish'], ['zh-CN', 'panel.languageChinese']]);
+    hint(general, 'panel.defaultsHelp');
+
+    const footer = element('footer', '', panel);
+    message(element('span', 'live-note', footer), 'panel.live');
+    const initialize = message(element('button', 'initialize', footer), 'panel.reset');
+    initialize.type = 'button';
+    initialize.dataset.action = 'initialize';
+    initialize.addEventListener('click', () => {
+        for (const control of controls.values()) control.removeAttribute('aria-invalid');
+        commit(changePanelSetting(current, hostname, 'initialize'));
     });
-    panel.addEventListener('keydown', (event) => {
-        if (event.key === 'Escape') close();
-    });
-    const loadThemeControls = (source) => {
-        for (const key of THEME_SETTING_KEYS) {
-            const control = controls[key];
-            if (control.type === 'checkbox') {
-                control.checked = source[key];
-            } else {
-                let value = String(source[key]);
-                if (control.type === 'color' && value.length === 4) {
-                    value = `#${[...value.slice(1)].map((character) => character + character).join('')}`;
-                }
-                control.value = value;
-                control.dispatchEvent(new Event('input'));
-            }
+
+    function refresh() {
+        panel.lang = resolveLanguage(current.language);
+        for (const {node, key, values} of messages) node.textContent = t(key, values);
+        closeButton.setAttribute('aria-label', t('panel.close'));
+        tabList.setAttribute('aria-label', t('panel.sections'));
+        initialize.title = t('panel.initializeHelp');
+        scope.textContent = t(getPanelValue(current, hostname, 'siteThemeOnly') ? 'panel.scopeSite' : 'panel.scopeGlobal');
+        for (const [key, control] of controls) {
+            if (control.getAttribute('aria-invalid') === 'true') continue;
+            const value = getPanelValue(current, hostname, key);
+            if (control.type === 'checkbox') control.checked = value;
+            else if (control.type === 'color' && value.length === 4) control.value = `#${[...value.slice(1)].map((character) => character + character).join('')}`;
+            else control.value = value === null ? '' : String(value);
+            const field = control.closest('.field');
+            field.classList.toggle('changed', isPanelSettingChanged(current, hostname, key));
+            const output = field.querySelector('output');
+            if (output) output.value = `${value}%`;
         }
+        for (const group of body.querySelectorAll('[data-condition]')) {
+            const mode = current.automation.mode;
+            group.hidden = group.dataset.condition === 'active' ? mode === 'none' : group.dataset.condition !== mode;
+        }
+        updateStatus();
+    }
+    const onEscape = (event) => {
+        if (event.key === 'Escape') { event.preventDefault(); close(); }
     };
-    controls.siteThemeOnly.addEventListener('change', () => {
-        loadThemeControls(controls.siteThemeOnly.checked ? resolveThemeForSite(settings, location.href) : settings);
-    });
-    controls.automationMode.addEventListener('change', () => {
-        const mode = controls.automationMode.value;
-        controls.automationBehavior.disabled = mode === 'none';
-        controls.activation.disabled = mode !== 'time';
-        controls.deactivation.disabled = mode !== 'time';
-        controls.latitude.disabled = mode !== 'location';
-        controls.longitude.disabled = mode !== 'location';
-    });
-    controls.automationMode.dispatchEvent(new Event('change'));
-    reset.addEventListener('click', () => {
-        const defaults = normalizeSettings(DEFAULT_SETTINGS);
-        for (const key of ['enabled', 'enabledByDefault', 'styleSystemControls', 'detectDarkTheme']) {
-            controls[key].checked = defaults[key];
-        }
-        for (const key of ['engine', 'mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
-            controls[key].value = String(defaults[key]);
-            controls[key].dispatchEvent(new Event('input'));
-        }
-        controls.mode.value = String(defaults.mode);
-        controls.language.value = defaults.language;
-        controls.automationMode.value = defaults.automation.mode;
-        controls.automationBehavior.value = defaults.automation.behavior;
-        controls.activation.value = defaults.automation.activation;
-        controls.deactivation.value = defaults.automation.deactivation;
-        controls.latitude.value = '';
-        controls.longitude.value = '';
-        controls.siteEnabled.checked = resolveSiteEnabled(defaults, location.href);
-        controls.siteThemeOnly.checked = false;
-        controls.automationMode.dispatchEvent(new Event('change'));
-    });
-    form.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const themeValues = {};
-        for (const key of THEME_SETTING_KEYS) {
-            const control = controls[key];
-            themeValues[key] = control.type === 'checkbox' ? control.checked :
-                NUMERIC_THEME_KEYS.has(key) ? Number(control.value) : control.value;
-        }
-        const base = normalizeSettings({
-            ...settings,
-            enabled: controls.enabled.checked,
-            enabledByDefault: controls.enabledByDefault.checked,
-            language: controls.language.value,
-            automation: {
-                ...settings.automation,
-                mode: controls.automationMode.value,
-                activation: controls.activation.value,
-                deactivation: controls.deactivation.value,
-                behavior: controls.automationBehavior.value,
-            },
-            location: {
-                latitude: controls.latitude.value,
-                longitude: controls.longitude.value,
-            },
-        });
-        const withTheme = controls.siteThemeOnly.checked
-            ? setSiteTheme(base, hostname, true, themeValues)
-            : setSiteTheme(normalizeSettings({...base, ...themeValues}), hostname, false);
-        const withSiteRule = setSiteOverride(withTheme, hostname, controls.siteEnabled.checked);
-        save.disabled = true;
-        try {
-            await onSave(withSiteRule);
-            close();
-        } catch {
-            status.hidden = false;
-            status.textContent = t('panel.saveError');
-        } finally {
-            save.disabled = false;
-        }
-    });
+    const previousFocus = document.activeElement;
+    const close = () => {
+        const hadFocus = Boolean(shadow.activeElement);
+        document.removeEventListener('keydown', onEscape, true);
+        host.remove();
+        if (activePanel === api) activePanel = null;
+        if (hadFocus && previousFocus?.isConnected) previousFocus.focus();
+    };
+    const api = {
+        host,
+        close,
+        focus: () => panel.focus(),
+        update: (next) => {
+            if (!host.isConnected) return;
+            const normalized = normalizeSettings(next);
+            if (JSON.stringify(normalized) === JSON.stringify(current)) return;
+            current = normalized;
+            ++revision;
+            storageError = false;
+            for (const control of controls.values()) control.removeAttribute('aria-invalid');
+            refresh();
+        },
+    };
+    closeButton.addEventListener('click', close);
+    panel.addEventListener('click', (event) => event.stopPropagation());
+    panel.addEventListener('keydown', (event) => event.stopPropagation());
+    document.addEventListener('keydown', onEscape, true);
+    selectTab(activeTab);
+    refresh();
+    (document.documentElement || document.body).append(host);
+    activePanel = api;
     panel.focus();
+    return api;
 }
