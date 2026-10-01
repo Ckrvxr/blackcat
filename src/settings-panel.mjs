@@ -1,5 +1,5 @@
 import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, setSiteTheme} from './settings.mjs';
-import {detectLanguage, translate} from './i18n.mjs';
+import {resolveLanguage, translate} from './i18n.mjs';
 
 const HOST_ID = 'blackcat-settings-panel';
 
@@ -10,7 +10,7 @@ const THEME_SETTING_KEYS = [
 ];
 const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia']);
 
-export function openSettingsPanel({settings, hostname, onSave, language = detectLanguage()}) {
+export function openSettingsPanel({settings, hostname, onSave, language = resolveLanguage(settings.language)}) {
     const t = (key, values) => translate(key, language, values);
     const themeSettings = resolveThemeForSite(settings, location.href);
     const hasSiteTheme = Object.hasOwn(settings.siteThemes, hostname.toLowerCase());
@@ -129,6 +129,11 @@ export function openSettingsPanel({settings, hostname, onSave, language = detect
     const grid = document.createElement('div');
     grid.className = 'grid';
 
+    addSelect(form, t('panel.language'), 'language', settings.language, [
+        ['auto', t('panel.languageAuto')],
+        ['en', t('panel.languageEnglish')],
+        ['zh-CN', t('panel.languageChinese')],
+    ]);
     addText(form, t('panel.enablement'));
     addCheck(form, t('panel.enabled'), 'enabled', settings.enabled);
     addCheck(form, t('panel.enabledByDefault'), 'enabledByDefault', settings.enabledByDefault);
@@ -284,6 +289,7 @@ export function openSettingsPanel({settings, hostname, onSave, language = detect
             controls[key].dispatchEvent(new Event('input'));
         }
         controls.mode.value = String(defaults.mode);
+        controls.language.value = defaults.language;
         controls.automationMode.value = defaults.automation.mode;
         controls.automationBehavior.value = defaults.automation.behavior;
         controls.activation.value = defaults.automation.activation;
@@ -306,6 +312,7 @@ export function openSettingsPanel({settings, hostname, onSave, language = detect
             ...settings,
             enabled: controls.enabled.checked,
             enabledByDefault: controls.enabledByDefault.checked,
+            language: controls.language.value,
             automation: {
                 ...settings.automation,
                 mode: controls.automationMode.value,

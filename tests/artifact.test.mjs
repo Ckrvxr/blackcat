@@ -41,6 +41,12 @@ test('userscript bundle includes the requested Chinese menu labels and settings 
     assert.ok(script.includes('恢复默认设置'));
 });
 
+test('settings UI supports language selection without adding a menu command', () => {
+    assert.ok(script.includes('panel.language'));
+    assert.ok(script.includes('简体中文'));
+    assert.ok(script.includes('Automatic (browser language)'));
+});
+
 test('userscript adapter no longer exposes font or text stroke settings', () => {
     for (const legacyOption of ['useFont', 'fontFamily', 'textStroke', 'Use custom font', 'Font family', 'Text stroke', '使用自定义字体', '文字描边']) {
         assert.doesNotMatch(script, new RegExp(legacyOption));

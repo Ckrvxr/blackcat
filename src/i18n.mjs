@@ -12,6 +12,10 @@ const ENGLISH = Object.freeze({
     'state.enabled': 'Enabled',
     'state.disabled': 'Disabled',
     'panel.title': 'Blackcat · Dark Reader',
+    'panel.language': 'Language',
+    'panel.languageAuto': 'Automatic (browser language)',
+    'panel.languageEnglish': 'English',
+    'panel.languageChinese': 'Simplified Chinese',
     'panel.enablement': 'Enablement',
     'panel.enabled': 'Enable Blackcat',
     'panel.enabledByDefault': 'Enable on sites without an override',
@@ -69,6 +73,10 @@ const SIMPLIFIED_CHINESE = Object.freeze({
     'state.enabled': '启用',
     'state.disabled': '关闭',
     'panel.title': 'Blackcat · 深色模式',
+    'panel.language': '界面语言',
+    'panel.languageAuto': '自动（跟随浏览器）',
+    'panel.languageEnglish': '英文',
+    'panel.languageChinese': '简体中文',
     'panel.enablement': '启用选项',
     'panel.enabled': '启用 Blackcat',
     'panel.enabledByDefault': '默认在所有网站启用',
@@ -116,6 +124,10 @@ export const MESSAGE_KEYS = Object.freeze(Object.keys(ENGLISH));
 
 export function detectLanguage(locale = globalThis.navigator?.language) {
     return typeof locale === 'string' && locale.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+}
+
+export function resolveLanguage(preference = 'auto', locale = globalThis.navigator?.language) {
+    return preference === 'en' || preference === 'zh-CN' ? preference : detectLanguage(locale);
 }
 
 export function translate(key, language = 'en', values = {}) {

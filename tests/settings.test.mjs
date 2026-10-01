@@ -8,6 +8,13 @@ test('defaults enable Dark Reader dynamically and follow system preference', () 
     assert.equal(DEFAULT_SETTINGS.styleSystemControls, false);
     assert.equal(DEFAULT_SETTINGS.engine, 'dynamicTheme');
     assert.equal(DEFAULT_SETTINGS.automation.mode, 'none');
+    assert.equal(DEFAULT_SETTINGS.language, 'auto');
+});
+
+test('normalizes saved language preferences', () => {
+    assert.equal(normalizeSettings({language: 'zh-CN'}).language, 'zh-CN');
+    assert.equal(normalizeSettings({language: 'en'}).language, 'en');
+    assert.equal(normalizeSettings({language: 'unsupported'}).language, 'auto');
 });
 
 test('normalizes persisted values and rejects invalid engine names', () => {

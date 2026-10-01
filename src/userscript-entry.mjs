@@ -1,6 +1,6 @@
 import {DEFAULT_SETTINGS, normalizeSettings, resolveAutomationState, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, toThemeOptions} from './settings.mjs';
 import {openSettingsPanel} from './settings-panel.mjs';
-import {detectLanguage, translate} from './i18n.mjs';
+import {resolveLanguage, translate} from './i18n.mjs';
 
 const SETTINGS_KEY = 'blackcat.settings.v1';
 const ENGINE = globalThis.BlackcatDarkReaderEngine;
@@ -97,8 +97,7 @@ function register(label, callback) {
 async function start() {
     let settings = await readSettings();
     const hostname = location.hostname.toLowerCase();
-    const language = detectLanguage();
-    const t = (key, values) => translate(key, language, values);
+    const t = (key, values) => translate(key, resolveLanguage(settings.language), values);
 
     const menuIds = [];
     const registerMenuCommands = () => {
@@ -131,7 +130,7 @@ async function start() {
         menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
             settings,
             hostname,
-            language,
+            language: resolveLanguage(settings.language),
             onSave: async (next) => {
                 settings = normalizeSettings(next);
                 await persist(settings);

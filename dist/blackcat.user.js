@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Blackcat Dark Reader
 // @namespace    https://github.com/Ckrvxr/blackcat
-// @version      0.1.0-beta.6
+// @version      0.1.0-beta.7
 // @description  Dark Reader page themes / 网页深色主题
 // @match        *://*/*
 // @run-at       document-start
@@ -10,9 +10,9 @@
 // @grant        GM_registerMenuCommand
 // @grant        GM_unregisterMenuCommand
 // @grant        GM_addValueChangeListener
-// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.6/dist/engine.js
-// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.6/dist/blackcat.user.js
-// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.6/dist/blackcat.user.js
+// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.7/dist/engine.js
+// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.7/dist/blackcat.user.js
+// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.7/dist/blackcat.user.js
 // ==/UserScript==
 (function () {
     'use strict';
@@ -20,6 +20,7 @@
     const DEFAULT_SETTINGS = Object.freeze({
         enabled: true,
         enabledByDefault: true,
+        language: 'auto',
         engine: 'dynamicTheme',
         mode: 1,
         brightness: 100,
@@ -48,6 +49,7 @@
     const ENGINES = new Set(['dynamicTheme', 'cssFilter', 'svgFilter', 'staticTheme']);
     const AUTOMATION_MODES = new Set(['none', 'system', 'time', 'location']);
     const AUTOMATION_BEHAVIORS = new Set(['OnOff', 'Scheme']);
+    const LANGUAGE_PREFERENCES = new Set(['auto', 'en', 'zh-CN']);
     const THEME_RANGES = Object.freeze({
         mode: [0, 1],
         brightness: [50, 150],
@@ -137,6 +139,7 @@
             ])),
             enabled: typeof input.enabled === 'boolean' ? input.enabled : DEFAULT_SETTINGS.enabled,
             enabledByDefault: typeof input.enabledByDefault === 'boolean' ? input.enabledByDefault : DEFAULT_SETTINGS.enabledByDefault,
+            language: LANGUAGE_PREFERENCES.has(input.language) ? input.language : DEFAULT_SETTINGS.language,
             engine: ENGINES.has(input.engine) ? input.engine : DEFAULT_SETTINGS.engine,
             darkSchemeBackgroundColor: validColor(input.darkSchemeBackgroundColor, DEFAULT_SETTINGS.darkSchemeBackgroundColor),
             darkSchemeTextColor: validColor(input.darkSchemeTextColor, DEFAULT_SETTINGS.darkSchemeTextColor),
@@ -306,6 +309,10 @@
         'state.enabled': 'Enabled',
         'state.disabled': 'Disabled',
         'panel.title': 'Blackcat · Dark Reader',
+        'panel.language': 'Language',
+        'panel.languageAuto': 'Automatic (browser language)',
+        'panel.languageEnglish': 'English',
+        'panel.languageChinese': 'Simplified Chinese',
         'panel.enablement': 'Enablement',
         'panel.enabled': 'Enable Blackcat',
         'panel.enabledByDefault': 'Enable on sites without an override',
@@ -363,6 +370,10 @@
         'state.enabled': '启用',
         'state.disabled': '关闭',
         'panel.title': 'Blackcat · 深色模式',
+        'panel.language': '界面语言',
+        'panel.languageAuto': '自动（跟随浏览器）',
+        'panel.languageEnglish': '英文',
+        'panel.languageChinese': '简体中文',
         'panel.enablement': '启用选项',
         'panel.enabled': '启用 Blackcat',
         'panel.enabledByDefault': '默认在所有网站启用',
@@ -412,6 +423,10 @@
         return typeof locale === 'string' && locale.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
     }
 
+    function resolveLanguage(preference = 'auto', locale = globalThis.navigator?.language) {
+        return preference === 'en' || preference === 'zh-CN' ? preference : detectLanguage(locale);
+    }
+
     function translate(key, language = 'en', values = {}) {
         const messages = language.toLowerCase().startsWith('zh') ? SIMPLIFIED_CHINESE : ENGLISH;
         const template = messages[key] ?? ENGLISH[key] ?? key;
@@ -427,7 +442,7 @@
     ];
     const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia']);
 
-    function openSettingsPanel({settings, hostname, onSave, language = detectLanguage()}) {
+    function openSettingsPanel({settings, hostname, onSave, language = resolveLanguage(settings.language)}) {
         const t = (key, values) => translate(key, language, values);
         const themeSettings = resolveThemeForSite(settings, location.href);
         const hasSiteTheme = Object.hasOwn(settings.siteThemes, hostname.toLowerCase());
@@ -546,6 +561,11 @@
         const grid = document.createElement('div');
         grid.className = 'grid';
 
+        addSelect(form, t('panel.language'), 'language', settings.language, [
+            ['auto', t('panel.languageAuto')],
+            ['en', t('panel.languageEnglish')],
+            ['zh-CN', t('panel.languageChinese')],
+        ]);
         addText(form, t('panel.enablement'));
         addCheck(form, t('panel.enabled'), 'enabled', settings.enabled);
         addCheck(form, t('panel.enabledByDefault'), 'enabledByDefault', settings.enabledByDefault);
@@ -701,6 +721,7 @@
                 controls[key].dispatchEvent(new Event('input'));
             }
             controls.mode.value = String(defaults.mode);
+            controls.language.value = defaults.language;
             controls.automationMode.value = defaults.automation.mode;
             controls.automationBehavior.value = defaults.automation.behavior;
             controls.activation.value = defaults.automation.activation;
@@ -723,6 +744,7 @@
                 ...settings,
                 enabled: controls.enabled.checked,
                 enabledByDefault: controls.enabledByDefault.checked,
+                language: controls.language.value,
                 automation: {
                     ...settings.automation,
                     mode: controls.automationMode.value,
@@ -848,8 +870,7 @@
     async function start() {
         let settings = await readSettings();
         const hostname = location.hostname.toLowerCase();
-        const language = detectLanguage();
-        const t = (key, values) => translate(key, language, values);
+        const t = (key, values) => translate(key, resolveLanguage(settings.language), values);
 
         const menuIds = [];
         const registerMenuCommands = () => {
@@ -882,7 +903,7 @@
             menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
                 settings,
                 hostname,
-                language,
+                language: resolveLanguage(settings.language),
                 onSave: async (next) => {
                     settings = normalizeSettings(next);
                     await persist(settings);

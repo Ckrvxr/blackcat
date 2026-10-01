@@ -1,6 +1,7 @@
 export const DEFAULT_SETTINGS = Object.freeze({
     enabled: true,
     enabledByDefault: true,
+    language: 'auto',
     engine: 'dynamicTheme',
     mode: 1,
     brightness: 100,
@@ -29,6 +30,7 @@ export const DEFAULT_SETTINGS = Object.freeze({
 const ENGINES = new Set(['dynamicTheme', 'cssFilter', 'svgFilter', 'staticTheme']);
 const AUTOMATION_MODES = new Set(['none', 'system', 'time', 'location']);
 const AUTOMATION_BEHAVIORS = new Set(['OnOff', 'Scheme']);
+const LANGUAGE_PREFERENCES = new Set(['auto', 'en', 'zh-CN']);
 const THEME_RANGES = Object.freeze({
     mode: [0, 1],
     brightness: [50, 150],
@@ -118,6 +120,7 @@ export function normalizeSettings(value) {
         ])),
         enabled: typeof input.enabled === 'boolean' ? input.enabled : DEFAULT_SETTINGS.enabled,
         enabledByDefault: typeof input.enabledByDefault === 'boolean' ? input.enabledByDefault : DEFAULT_SETTINGS.enabledByDefault,
+        language: LANGUAGE_PREFERENCES.has(input.language) ? input.language : DEFAULT_SETTINGS.language,
         engine: ENGINES.has(input.engine) ? input.engine : DEFAULT_SETTINGS.engine,
         darkSchemeBackgroundColor: validColor(input.darkSchemeBackgroundColor, DEFAULT_SETTINGS.darkSchemeBackgroundColor),
         darkSchemeTextColor: validColor(input.darkSchemeTextColor, DEFAULT_SETTINGS.darkSchemeTextColor),

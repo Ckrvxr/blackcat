@@ -1,12 +1,20 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {detectLanguage, MESSAGE_KEYS, translate} from '../src/i18n.mjs';
+import {detectLanguage, MESSAGE_KEYS, resolveLanguage, translate} from '../src/i18n.mjs';
 
 test('detects Chinese browser locales and keeps English for other locales', () => {
     assert.equal(detectLanguage('zh-CN'), 'zh-CN');
     assert.equal(detectLanguage('zh-TW'), 'zh-CN');
     assert.equal(detectLanguage('en-US'), 'en');
     assert.equal(detectLanguage(''), 'en');
+});
+
+test('resolves automatic and explicit language choices', () => {
+    assert.equal(resolveLanguage('auto', 'zh-CN'), 'zh-CN');
+    assert.equal(resolveLanguage('auto', 'en-US'), 'en');
+    assert.equal(resolveLanguage('en', 'zh-CN'), 'en');
+    assert.equal(resolveLanguage('zh-CN', 'en-US'), 'zh-CN');
+    assert.equal(resolveLanguage('invalid', 'zh-CN'), 'zh-CN');
 });
 
 test('translates the four visible menu labels and their state values', () => {
