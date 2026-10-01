@@ -102,4 +102,7 @@ const api = Object.freeze({
     isEnabled: () => enabled,
 });
 
+// @require can evaluate this IIFE inside a manager wrapper, where Rollup's `var` is not global.
+Object.assign(globalThis, {BlackcatDarkReaderEngine: api});
+
 export default api;

@@ -21,6 +21,10 @@ test('built script installs and updates from the same explicit asset ref', () =>
     assert.ok(script.includes(`// @version      ${packageJSON.version}`), 'userscript version must match package.json');
 });
 
+test('engine API is explicitly exposed on the userscript global', () => {
+    assert.ok(engine.includes('Object.assign(globalThis,{BlackcatDarkReaderEngine:'), 'engine must attach its API to the userscript global');
+});
+
 test('engine artifact contains all four Dark Reader rendering engines', () => {
     for (const name of ['dynamicTheme', 'cssFilter', 'svgFilter', 'staticTheme']) {
         assert.ok(engine.includes(name), `missing ${name} in generated engine`);
