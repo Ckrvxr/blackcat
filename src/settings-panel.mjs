@@ -3,6 +3,7 @@ import {resolveLanguage, translate} from './i18n.mjs';
 import {changePanelSetting, getPanelValue, isPanelSettingChanged} from './settings-panel-state.mjs';
 import {MAX_SETTINGS_FILE_BYTES, parseSettingsFile, serializeSettingsFile} from './settings-file.mjs';
 import {PANEL_STYLE} from './settings-panel-style.mjs';
+import BLACKCAT_ICON_SVG from '../assets/blackcat.svg?raw';
 
 const HOST_ID = 'blackcat-settings-panel';
 let activePanel = null;
@@ -46,7 +47,17 @@ export function openSettingsPanel({settings, hostname, onChange}) {
     panel.setAttribute('aria-labelledby', 'blackcat-title');
     panel.tabIndex = -1;
     const header = element('header', '', panel);
-    element('span', 'brand', header).textContent = 'B';
+    // Inline the trusted design asset so page image policies cannot block it.
+    const brand = document.importNode(new DOMParser().parseFromString(BLACKCAT_ICON_SVG, 'image/svg+xml').documentElement, true);
+    brand.setAttribute('class', 'brand');
+    brand.setAttribute('aria-hidden', 'true');
+    brand.setAttribute('focusable', 'false');
+    brand.removeAttribute('aria-labelledby');
+    // Keep the asset palette above Dark Reader's inline fill overrides.
+    for (const shape of brand.querySelectorAll('[fill]')) {
+        shape.style.setProperty('fill', shape.getAttribute('fill'), 'important');
+    }
+    header.append(brand);
     const title = element('div', '', header);
     const heading = element('h1', '', title);
     heading.id = 'blackcat-title';

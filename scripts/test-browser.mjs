@@ -13,13 +13,16 @@ const run = async (...args) => {
 };
 const server = createServer(async (request, response) => {
     try {
-        const pathname = decodeURIComponent(new URL(request.url, 'http://localhost').pathname);
+        const url = new URL(request.url, 'http://localhost');
+        const pathname = decodeURIComponent(url.pathname);
         const path = resolve(projectRoot, `.${pathname}`);
         if (!path.startsWith(resolve(projectRoot) + sep)) throw new Error('Outside fixture root');
         const content = await readFile(path);
-        const mime = {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css'}[extname(path)] || 'application/octet-stream';
+        // Mirror Vite's raw asset imports for the unbundled panel tests.
+        const raw = extname(path) === '.svg' && url.searchParams.has('raw');
+        const mime = raw ? 'text/javascript' : {'.html': 'text/html', '.js': 'text/javascript', '.mjs': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml'}[extname(path)] || 'application/octet-stream';
         response.writeHead(200, {'Content-Type': `${mime}; charset=utf-8`, 'Cache-Control': 'no-store'});
-        response.end(content);
+        response.end(raw ? `export default ${JSON.stringify(content.toString('utf8'))};` : content);
     } catch {
         response.writeHead(404);
         response.end('Not found');

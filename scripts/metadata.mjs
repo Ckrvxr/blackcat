@@ -1,3 +1,6 @@
+import {readFileSync} from 'node:fs';
+
+const ICON_DATA_URL = `data:image/svg+xml;base64,${readFileSync(new URL('../assets/blackcat.svg', import.meta.url)).toString('base64')}`;
 const SAFE_REF = /^[A-Za-z0-9._-]+$/;
 const SAFE_VERSION = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
@@ -16,6 +19,8 @@ export function createUserscriptMetadata({version, releaseRef}) {
         '// @namespace    https://github.com/Ckrvxr/blackcat',
         '// @version      ' + version,
         '// @description  Unified Dark Mode support for any sites',
+        `// @icon         ${ICON_DATA_URL}`,
+        `// @icon64       ${ICON_DATA_URL}`,
         '// @match        *://*/*',
         '// @run-at       document-start',
         '// @grant        GM_getValue',

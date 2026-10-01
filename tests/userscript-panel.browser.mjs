@@ -1,4 +1,5 @@
 import {DEFAULT_SETTINGS, normalizeSettings} from '../src/settings.mjs';
+import {assertPanelIcon} from './icon.browser.mjs';
 
 export async function runUserscriptPanelBrowserTests() {
     const results = [];
@@ -31,6 +32,8 @@ export async function runUserscriptPanelBrowserTests() {
     assert(!document.getElementById('blackcat-prepaint'), 'Userscript must not inject a temporary background');
     results.push('system-following default initializes the engine');
     open();
+    await assertPanelIcon(root());
+    results.push('bundled project SVG in settings header');
     assert(control('automation.mode').value === 'system', 'Default automation should follow the system preference');
     change('automation.mode', 'none');
     await waitFor(() => globalThis.blackcatStoredSettings()?.automation.mode === 'none' && globalThis.BlackcatDarkReaderEngine.isEnabled());
@@ -63,6 +66,7 @@ export async function runUserscriptPanelBrowserTests() {
         await waitFor(() => globalThis.blackcatStoredSettings().engine === engine);
         await waitFor(() => globalThis.BlackcatDarkReaderEngine.isEnabled());
         assert(document.documentElement.getAttribute('data-darkreader-mode') === expectedMode(engine), `Engine did not render: ${engine}`);
+        await assertPanelIcon(root());
     }
     await waitFor(() => globalThis.blackcatStoredSettings().engine === 'dynamicTheme');
     results.push('all four rendering engines remain usable');

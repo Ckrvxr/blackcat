@@ -9,7 +9,7 @@ export const PANEL_STYLE = `
         border: 1px solid #353d49; border-radius: 18px; box-shadow: 0 16px 56px #0006, 0 2px 8px #0004; }
     .panel:focus { outline: none; }
     header { display: flex; align-items: center; gap: 10px; padding: 18px 18px 14px; }
-    .brand { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: #2a3546; color: #b4d0ff; font-size: 18px; font-weight: 600; }
+    .brand { display: block; flex-shrink: 0; width: 32px; height: 32px; }
     h1 { margin: 0; font-size: 16px; font-weight: 600; letter-spacing: .1px; }
     .subtitle { margin: 0; font-size: 12px; color: #a8b4c5; }
     button, input, select { font: inherit; color: inherit; }

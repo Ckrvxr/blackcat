@@ -32,6 +32,15 @@ test('built userscript is self-contained and updates from an explicit release re
     assert.doesNotMatch(script, /blackcat-prepaint|blackcat:theme-ready|blackcat:prepaint-installed/, 'installer must not inject a temporary background');
 });
 
+test('built metadata embeds the project icon rather than requiring a published asset', () => {
+    const svg = readFileSync(path.join(projectRoot, 'assets/blackcat.svg'), 'utf8');
+    for (const field of ['icon', 'icon64']) {
+        const icon = script.match(new RegExp(`^// @${field}\\s+data:image/svg\\+xml;base64,([A-Za-z0-9+/=]+)$`, 'm'));
+        assert.ok(icon, `Missing embedded @${field} in the installer`);
+        assert.equal(Buffer.from(icon[1], 'base64').toString('utf8'), svg);
+    }
+});
+
 test('userscript menu labels omit the redundant project prefix', () => {
     assert.doesNotMatch(adapter, /\[Blackcat\] \$\{label\}/);
 });

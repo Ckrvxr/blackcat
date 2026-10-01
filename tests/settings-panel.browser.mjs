@@ -2,6 +2,7 @@ import {openSettingsPanel} from '../src/settings-panel.mjs';
 import {DEFAULT_SETTINGS, normalizeSettings} from '../src/settings.mjs';
 import {THEME_SETTING_KEYS, getPanelValue} from '../src/settings-panel-state.mjs';
 import {serializeSettingsFile} from '../src/settings-file.mjs';
+import {assertPanelIcon} from './icon.browser.mjs';
 
 // Runs against real DOM controls in Chromium, not a mock DOM.
 export async function runPanelBrowserTests() {
@@ -42,6 +43,8 @@ export async function runPanelBrowserTests() {
         if (failWrite) throw new Error('test write failure');
         saved.push(next);
     }});
+    await assertPanelIcon(root());
+    results.push('project SVG in settings header');
     assert(root().querySelectorAll('[role="tab"]').length === 2, 'Site and global settings should be the only tabs');
     const tabList = root().querySelector('.tabs');
     const tabButtons = [...tabList.querySelectorAll('.tab')];
