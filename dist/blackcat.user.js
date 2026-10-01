@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Blackcat Dark Reader
 // @namespace    https://github.com/Ckrvxr/blackcat
-// @version      0.1.0-beta.2
+// @version      0.1.0-beta.3
 // @description  Dark Reader page themes for userscript managers
 // @match        *://*/*
 // @run-at       document-start
@@ -9,9 +9,9 @@
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_addValueChangeListener
-// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.2/dist/engine.js
-// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.2/dist/blackcat.user.js
-// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.2/dist/blackcat.user.js
+// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.3/dist/engine.js
+// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.3/dist/blackcat.user.js
+// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.3/dist/blackcat.user.js
 // ==/UserScript==
 (function () {
     'use strict';
@@ -732,7 +732,7 @@
 
     function register(label, callback) {
         if (typeof registerMenu === 'function') {
-            registerMenu(`[Blackcat] ${label}`, callback);
+            registerMenu(label, callback);
         }
     }
 

@@ -88,7 +88,7 @@ function scheduleAutomation(settings) {
 
 function register(label, callback) {
     if (typeof registerMenu === 'function') {
-        registerMenu(`[Blackcat] ${label}`, callback);
+        registerMenu(label, callback);
     }
 }
 
