@@ -22,6 +22,7 @@ export function createUserscriptMetadata({version, assetRef}) {
         '// @grant        GM_getValue',
         '// @grant        GM_setValue',
         '// @grant        GM_registerMenuCommand',
+        '// @grant        GM_unregisterMenuCommand',
         '// @grant        GM_addValueChangeListener',
         `// @require      ${engine}`,
         `// @updateURL    ${base}/blackcat.user.js`,

@@ -9,11 +9,31 @@ test('detects Chinese browser locales and keeps English for other locales', () =
     assert.equal(detectLanguage(''), 'en');
 });
 
-test('translates menu labels and interpolates the current hostname', () => {
-    assert.equal(translate('menu.settings', 'zh-CN'), '设置');
-    assert.equal(translate('menu.settings', 'en'), 'Settings');
-    assert.equal(translate('menu.site', 'zh-CN'), '切换此网站');
+test('translates the five visible menu labels and their state values', () => {
+    assert.equal(translate('menu.settings', 'zh-CN'), '⚙️ 更多设置');
+    assert.equal(translate('menu.global', 'zh-CN', {status: '关闭'}), '🌍 全局：关闭');
+    assert.equal(translate('menu.site', 'zh-CN', {status: '启用'}), '🌐 此网站上: 启用');
+    assert.equal(translate('menu.colorMode', 'zh-CN', {mode: '深色'}), '🌗 色彩模式：深色');
+    assert.equal(translate('menu.engine', 'zh-CN', {engine: '动态主题'}), '🎨 主题引擎：动态主题');
+    assert.equal(translate('menu.colorMode', 'en', {mode: 'dark'}), '🌗 Color mode: dark');
+    assert.equal(translate('menu.engine', 'en', {engine: 'Dynamic theme'}), '🎨 Theme engine: Dynamic theme');
+    assert.equal(translate('menu.global', 'en', {status: 'Disabled'}), '🌍 Global: Disabled');
     assert.equal(translate('panel.siteEnabled', 'zh-CN', {hostname: 'example.com'}), '为 example.com 启用 Blackcat');
+});
+
+test('prefixes each menu command with a matching emoji', () => {
+    const icons = {
+        'menu.settings': '⚙️',
+        'menu.site': '🌐',
+        'menu.global': '🌍',
+        'menu.engine': '🎨',
+        'menu.colorMode': '🌗',
+    };
+    for (const language of ['en', 'zh-CN']) {
+        for (const [key, icon] of Object.entries(icons)) {
+            assert.ok(translate(key, language).startsWith(icon), `${key} should start with ${icon} in ${language}`);
+        }
+    }
 });
 
 test('provides a Simplified Chinese translation for every UI message', () => {
@@ -23,6 +43,6 @@ test('provides a Simplified Chinese translation for every UI message', () => {
 });
 
 test('falls back to English for an untranslated message', () => {
-    assert.equal(translate('automation.location', 'zh-CN'), '日出/日落');
+    assert.equal(translate('panel.automationLocation', 'zh-CN'), '按日出和日落切换');
     assert.equal(translate('unknown.key', 'zh-CN'), 'unknown.key');
 });

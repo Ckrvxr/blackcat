@@ -16,8 +16,18 @@
         const blackcatStore = new Map();
         globalThis.GM_getValue = (key, fallback) => blackcatStore.has(key) ? blackcatStore.get(key) : fallback;
         globalThis.GM_setValue = (key, value) => blackcatStore.set(key, value);
+        const registeredMenuCommands = new Map();
+        let nextMenuId = 0;
         globalThis.GM_registerMenuCommand = (label, callback) => {
+            const id = ++nextMenuId;
             (globalThis.blackcatCommands ||= {})[label] = callback;
+            registeredMenuCommands.set(id, label);
+            return id;
+        };
+        globalThis.GM_unregisterMenuCommand = (id) => {
+            const label = registeredMenuCommands.get(id);
+            if (label) delete globalThis.blackcatCommands[label];
+            registeredMenuCommands.delete(id);
         };
         globalThis.GM_addValueChangeListener = () => 1;
     </script>

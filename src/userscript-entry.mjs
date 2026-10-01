@@ -7,6 +7,7 @@ const ENGINE = globalThis.BlackcatDarkReaderEngine;
 const getValue = globalThis.GM_getValue;
 const setValue = globalThis.GM_setValue;
 const registerMenu = globalThis.GM_registerMenuCommand;
+const unregisterMenu = globalThis.GM_unregisterMenuCommand;
 const addValueListener = globalThis.GM_addValueChangeListener;
 let automationTimer = null;
 
@@ -89,7 +90,7 @@ function scheduleAutomation(settings) {
 
 function register(label, callback) {
     if (typeof registerMenu === 'function') {
-        registerMenu(label, callback);
+        return registerMenu(label, callback);
     }
 }
 
@@ -104,69 +105,58 @@ async function start() {
     const language = detectLanguage();
     const t = (key, values) => translate(key, language, values);
 
-    register(t('menu.settings'), () => openSettingsPanel({
-        settings,
-        hostname,
-        language,
-        onSave: async (next) => {
-            settings = normalizeSettings(next);
-            await persist(settings);
-            apply(settings);
-            scheduleAutomation(settings);
-        },
-    }));
-
-    register(t('menu.site'), async () => {
-        settings = await update((current) => setSiteOverride(
-            current,
-            hostname,
-            !resolveSiteEnabled(current, location.href),
-        ));
-    });
-
-    register(t('menu.global'), async () => {
-        settings = await update((current) => ({...current, enabled: !current.enabled}));
-    });
-
+    const menuIds = [];
     const engineMessage = {
         dynamicTheme: 'engine.dynamic',
         cssFilter: 'engine.filter',
         svgFilter: 'engine.svgFilter',
         staticTheme: 'engine.static',
     };
-    register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
-        settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
-    });
+    const registerMenuCommands = () => {
+        if (menuIds.length > 0) {
+            if (typeof unregisterMenu !== 'function' || menuIds.some((id) => id === undefined || id === null)) return;
+            for (const id of menuIds) unregisterMenu(id);
+            menuIds.length = 0;
+        }
 
-    register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
-        settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
-    });
-
-    register(t('menu.brightnessDown', {value: settings.brightness}), async () => {
-        settings = await update((current) => ({...current, brightness: current.brightness - 10}));
-    });
-    register(t('menu.brightnessUp', {value: settings.brightness}), async () => {
-        settings = await update((current) => ({...current, brightness: current.brightness + 10}));
-    });
-    register(t('menu.contrastDown', {value: settings.contrast}), async () => {
-        settings = await update((current) => ({...current, contrast: current.contrast - 10}));
-    });
-    register(t('menu.contrastUp', {value: settings.contrast}), async () => {
-        settings = await update((current) => ({...current, contrast: current.contrast + 10}));
-    });
-    const automationMessage = {
-        none: 'automation.none',
-        system: 'automation.system',
-        time: 'automation.time',
-        location: 'automation.location',
-    };
-    register(t('menu.automation', {mode: t(automationMessage[settings.automation.mode])}), async () => {
-        const modes = ['none', 'system', 'time', 'location'];
-        settings = await update((current) => ({
-            ...current,
-            automation: {...current.automation, mode: modes[(modes.indexOf(current.automation.mode) + 1) % modes.length]},
+        menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
+            settings,
+            hostname,
+            language,
+            onSave: async (next) => {
+                settings = normalizeSettings(next);
+                await persist(settings);
+                apply(settings);
+                scheduleAutomation(settings);
+                registerMenuCommands();
+            },
+        })));
+        menuIds.push(register(t('menu.site', {
+            status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
+        }), async () => {
+            settings = await update((current) => setSiteOverride(
+                current,
+                hostname,
+                !resolveSiteEnabled(current, location.href),
+            ));
+            registerMenuCommands();
         }));
-    });
+        menuIds.push(register(t('menu.global', {
+            status: t(settings.enabled ? 'state.enabled' : 'state.disabled'),
+        }), async () => {
+            settings = await update((current) => ({...current, enabled: !current.enabled}));
+            registerMenuCommands();
+        }));
+        menuIds.push(register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
+            settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
+            registerMenuCommands();
+        }));
+        menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
+            settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
+            registerMenuCommands();
+        }));
+    };
+    registerMenuCommands();
 
     apply(settings);
     scheduleAutomation(settings);
@@ -177,6 +167,7 @@ async function start() {
                 settings = normalizeSettings(newValue);
                 apply(settings);
                 scheduleAutomation(settings);
+                registerMenuCommands();
             }
         });
     }

@@ -1,17 +1,18 @@
 // ==UserScript==
 // @name         Blackcat Dark Reader
 // @namespace    https://github.com/Ckrvxr/blackcat
-// @version      0.1.0-beta.4
+// @version      0.1.0-beta.5
 // @description  Dark Reader page themes / 网页深色主题
 // @match        *://*/*
 // @run-at       document-start
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
+// @grant        GM_unregisterMenuCommand
 // @grant        GM_addValueChangeListener
-// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.4/dist/engine.js
-// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.4/dist/blackcat.user.js
-// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.4/dist/blackcat.user.js
+// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.5/dist/engine.js
+// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.5/dist/blackcat.user.js
+// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.5/dist/blackcat.user.js
 // ==/UserScript==
 (function () {
     'use strict';
@@ -306,26 +307,19 @@
     }
 
     const ENGLISH = Object.freeze({
-        'menu.settings': 'Settings',
-        'menu.site': 'Toggle this site',
-        'menu.global': 'Toggle globally',
-        'menu.engine': 'Theme engine: {engine} (cycle)',
-        'menu.colorMode': 'Color mode: {mode} (toggle)',
-        'menu.brightnessDown': 'Brightness: {value}% (-10)',
-        'menu.brightnessUp': 'Brightness: {value}% (+10)',
-        'menu.contrastDown': 'Contrast: {value}% (-10)',
-        'menu.contrastUp': 'Contrast: {value}% (+10)',
-        'menu.automation': 'Automation: {mode} (cycle)',
+        'menu.settings': '⚙️ More settings',
+        'menu.site': '🌐 This site: {status}',
+        'menu.global': '🌍 Global: {status}',
+        'menu.engine': '🎨 Theme engine: {engine}',
+        'menu.colorMode': '🌗 Color mode: {mode}',
         'engine.dynamic': 'Dynamic theme',
         'engine.filter': 'Filter',
         'engine.svgFilter': 'Filter+ (SVG)',
         'engine.static': 'Static theme',
         'mode.dark': 'dark',
         'mode.dimmed': 'dimmed',
-        'automation.none': 'off',
-        'automation.system': 'system',
-        'automation.time': 'time',
-        'automation.location': 'sunrise/sunset',
+        'state.enabled': 'Enabled',
+        'state.disabled': 'Disabled',
         'panel.title': 'Blackcat · Dark Reader',
         'panel.enablement': 'Enablement',
         'panel.enabled': 'Enable Blackcat',
@@ -374,26 +368,19 @@
     });
 
     const SIMPLIFIED_CHINESE = Object.freeze({
-        'menu.settings': '设置',
-        'menu.site': '切换此网站',
-        'menu.global': '全局开关',
-        'menu.engine': '主题引擎：{engine}（切换）',
-        'menu.colorMode': '色彩模式：{mode}（切换）',
-        'menu.brightnessDown': '亮度：{value}%（-10）',
-        'menu.brightnessUp': '亮度：{value}%（+10）',
-        'menu.contrastDown': '对比度：{value}%（-10）',
-        'menu.contrastUp': '对比度：{value}%（+10）',
-        'menu.automation': '自动切换：{mode}（切换）',
+        'menu.settings': '⚙️ 更多设置',
+        'menu.site': '🌐 此网站上: {status}',
+        'menu.global': '🌍 全局：{status}',
+        'menu.engine': '🎨 主题引擎：{engine}',
+        'menu.colorMode': '🌗 色彩模式：{mode}',
         'engine.dynamic': '动态主题',
         'engine.filter': '滤镜',
         'engine.svgFilter': '增强滤镜（SVG）',
         'engine.static': '静态主题',
         'mode.dark': '深色',
         'mode.dimmed': '柔和',
-        'automation.none': '关闭',
-        'automation.system': '跟随系统',
-        'automation.time': '按时间',
-        'automation.location': '日出/日落',
+        'state.enabled': '启用',
+        'state.disabled': '关闭',
         'panel.title': 'Blackcat · 深色模式',
         'panel.enablement': '启用选项',
         'panel.enabled': '启用 Blackcat',
@@ -800,6 +787,7 @@
     const getValue = globalThis.GM_getValue;
     const setValue = globalThis.GM_setValue;
     const registerMenu = globalThis.GM_registerMenuCommand;
+    const unregisterMenu = globalThis.GM_unregisterMenuCommand;
     const addValueListener = globalThis.GM_addValueChangeListener;
     let automationTimer = null;
 
@@ -882,7 +870,7 @@
 
     function register(label, callback) {
         if (typeof registerMenu === 'function') {
-            registerMenu(label, callback);
+            return registerMenu(label, callback);
         }
     }
 
@@ -897,69 +885,58 @@
         const language = detectLanguage();
         const t = (key, values) => translate(key, language, values);
 
-        register(t('menu.settings'), () => openSettingsPanel({
-            settings,
-            hostname,
-            language,
-            onSave: async (next) => {
-                settings = normalizeSettings(next);
-                await persist(settings);
-                apply(settings);
-                scheduleAutomation(settings);
-            },
-        }));
-
-        register(t('menu.site'), async () => {
-            settings = await update((current) => setSiteOverride(
-                current,
-                hostname,
-                !resolveSiteEnabled(current, location.href),
-            ));
-        });
-
-        register(t('menu.global'), async () => {
-            settings = await update((current) => ({...current, enabled: !current.enabled}));
-        });
-
+        const menuIds = [];
         const engineMessage = {
             dynamicTheme: 'engine.dynamic',
             cssFilter: 'engine.filter',
             svgFilter: 'engine.svgFilter',
             staticTheme: 'engine.static',
         };
-        register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
-            settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
-        });
+        const registerMenuCommands = () => {
+            if (menuIds.length > 0) {
+                if (typeof unregisterMenu !== 'function' || menuIds.some((id) => id === undefined || id === null)) return;
+                for (const id of menuIds) unregisterMenu(id);
+                menuIds.length = 0;
+            }
 
-        register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
-            settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
-        });
-
-        register(t('menu.brightnessDown', {value: settings.brightness}), async () => {
-            settings = await update((current) => ({...current, brightness: current.brightness - 10}));
-        });
-        register(t('menu.brightnessUp', {value: settings.brightness}), async () => {
-            settings = await update((current) => ({...current, brightness: current.brightness + 10}));
-        });
-        register(t('menu.contrastDown', {value: settings.contrast}), async () => {
-            settings = await update((current) => ({...current, contrast: current.contrast - 10}));
-        });
-        register(t('menu.contrastUp', {value: settings.contrast}), async () => {
-            settings = await update((current) => ({...current, contrast: current.contrast + 10}));
-        });
-        const automationMessage = {
-            none: 'automation.none',
-            system: 'automation.system',
-            time: 'automation.time',
-            location: 'automation.location',
-        };
-        register(t('menu.automation', {mode: t(automationMessage[settings.automation.mode])}), async () => {
-            const modes = ['none', 'system', 'time', 'location'];
-            settings = await update((current) => ({
-                ...current,
-                automation: {...current.automation, mode: modes[(modes.indexOf(current.automation.mode) + 1) % modes.length]},
+            menuIds.push(register(t('menu.settings'), () => openSettingsPanel({
+                settings,
+                hostname,
+                language,
+                onSave: async (next) => {
+                    settings = normalizeSettings(next);
+                    await persist(settings);
+                    apply(settings);
+                    scheduleAutomation(settings);
+                    registerMenuCommands();
+                },
+            })));
+            menuIds.push(register(t('menu.site', {
+                status: t(resolveSiteEnabled(settings, location.href) ? 'state.enabled' : 'state.disabled'),
+            }), async () => {
+                settings = await update((current) => setSiteOverride(
+                    current,
+                    hostname,
+                    !resolveSiteEnabled(current, location.href),
+                ));
+                registerMenuCommands();
             }));
-        });
+            menuIds.push(register(t('menu.global', {
+                status: t(settings.enabled ? 'state.enabled' : 'state.disabled'),
+            }), async () => {
+                settings = await update((current) => ({...current, enabled: !current.enabled}));
+                registerMenuCommands();
+            }));
+            menuIds.push(register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
+                settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
+                registerMenuCommands();
+            }));
+            menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
+                settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
+                registerMenuCommands();
+            }));
+        };
+        registerMenuCommands();
 
         apply(settings);
         scheduleAutomation(settings);
@@ -970,6 +947,7 @@
                     settings = normalizeSettings(newValue);
                     apply(settings);
                     scheduleAutomation(settings);
+                    registerMenuCommands();
                 }
             });
         }
