@@ -1,5 +1,6 @@
 import {DEFAULT_SETTINGS, normalizeSettings, resolveAutomationState, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, toThemeOptions} from './settings.mjs';
 import {openSettingsPanel} from './settings-panel.mjs';
+import {detectLanguage, translate} from './i18n.mjs';
 
 const SETTINGS_KEY = 'blackcat.settings.v1';
 const ENGINE = globalThis.BlackcatDarkReaderEngine;
@@ -100,10 +101,13 @@ function cycleEngine(current) {
 async function start() {
     let settings = await readSettings();
     const hostname = location.hostname.toLowerCase();
+    const language = detectLanguage();
+    const t = (key, values) => translate(key, language, values);
 
-    register('Settings', () => openSettingsPanel({
+    register(t('menu.settings'), () => openSettingsPanel({
         settings,
         hostname,
+        language,
         onSave: async (next) => {
             settings = normalizeSettings(next);
             await persist(settings);
@@ -112,7 +116,7 @@ async function start() {
         },
     }));
 
-    register('Toggle this site', async () => {
+    register(t('menu.site'), async () => {
         settings = await update((current) => setSiteOverride(
             current,
             hostname,
@@ -120,31 +124,43 @@ async function start() {
         ));
     });
 
-    register('Toggle globally', async () => {
+    register(t('menu.global'), async () => {
         settings = await update((current) => ({...current, enabled: !current.enabled}));
     });
 
-    register(`Theme engine: ${settings.engine} (cycle)`, async () => {
+    const engineMessage = {
+        dynamicTheme: 'engine.dynamic',
+        cssFilter: 'engine.filter',
+        svgFilter: 'engine.svgFilter',
+        staticTheme: 'engine.static',
+    };
+    register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
         settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
     });
 
-    register(`Color mode: ${settings.mode ? 'dark' : 'dimmed'} (toggle)`, async () => {
+    register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
         settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
     });
 
-    register(`Brightness: ${settings.brightness}% (-10)`, async () => {
+    register(t('menu.brightnessDown', {value: settings.brightness}), async () => {
         settings = await update((current) => ({...current, brightness: current.brightness - 10}));
     });
-    register(`Brightness: ${settings.brightness}% (+10)`, async () => {
+    register(t('menu.brightnessUp', {value: settings.brightness}), async () => {
         settings = await update((current) => ({...current, brightness: current.brightness + 10}));
     });
-    register(`Contrast: ${settings.contrast}% (-10)`, async () => {
+    register(t('menu.contrastDown', {value: settings.contrast}), async () => {
         settings = await update((current) => ({...current, contrast: current.contrast - 10}));
     });
-    register(`Contrast: ${settings.contrast}% (+10)`, async () => {
+    register(t('menu.contrastUp', {value: settings.contrast}), async () => {
         settings = await update((current) => ({...current, contrast: current.contrast + 10}));
     });
-    register(`Automation: ${settings.automation.mode} (cycle)`, async () => {
+    const automationMessage = {
+        none: 'automation.none',
+        system: 'automation.system',
+        time: 'automation.time',
+        location: 'automation.location',
+    };
+    register(t('menu.automation', {mode: t(automationMessage[settings.automation.mode])}), async () => {
         const modes = ['none', 'system', 'time', 'location'];
         settings = await update((current) => ({
             ...current,

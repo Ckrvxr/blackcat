@@ -1,17 +1,17 @@
 // ==UserScript==
 // @name         Blackcat Dark Reader
 // @namespace    https://github.com/Ckrvxr/blackcat
-// @version      0.1.0-beta.3
-// @description  Dark Reader page themes for userscript managers
+// @version      0.1.0-beta.4
+// @description  Dark Reader page themes / 网页深色主题
 // @match        *://*/*
 // @run-at       document-start
 // @grant        GM_getValue
 // @grant        GM_setValue
 // @grant        GM_registerMenuCommand
 // @grant        GM_addValueChangeListener
-// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.3/dist/engine.js
-// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.3/dist/blackcat.user.js
-// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.3/dist/blackcat.user.js
+// @require      https://cdn.jsdelivr.net/gh/Ckrvxr/blackcat@v0.1.0-beta.4/dist/engine.js
+// @updateURL    https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.4/dist/blackcat.user.js
+// @downloadURL  https://raw.githubusercontent.com/Ckrvxr/blackcat/v0.1.0-beta.4/dist/blackcat.user.js
 // ==/UserScript==
 (function () {
     'use strict';
@@ -305,6 +305,154 @@
         return {enabled: shouldBeDark, mode: settings.mode};
     }
 
+    const ENGLISH = Object.freeze({
+        'menu.settings': 'Settings',
+        'menu.site': 'Toggle this site',
+        'menu.global': 'Toggle globally',
+        'menu.engine': 'Theme engine: {engine} (cycle)',
+        'menu.colorMode': 'Color mode: {mode} (toggle)',
+        'menu.brightnessDown': 'Brightness: {value}% (-10)',
+        'menu.brightnessUp': 'Brightness: {value}% (+10)',
+        'menu.contrastDown': 'Contrast: {value}% (-10)',
+        'menu.contrastUp': 'Contrast: {value}% (+10)',
+        'menu.automation': 'Automation: {mode} (cycle)',
+        'engine.dynamic': 'Dynamic theme',
+        'engine.filter': 'Filter',
+        'engine.svgFilter': 'Filter+ (SVG)',
+        'engine.static': 'Static theme',
+        'mode.dark': 'dark',
+        'mode.dimmed': 'dimmed',
+        'automation.none': 'off',
+        'automation.system': 'system',
+        'automation.time': 'time',
+        'automation.location': 'sunrise/sunset',
+        'panel.title': 'Blackcat · Dark Reader',
+        'panel.enablement': 'Enablement',
+        'panel.enabled': 'Enable Blackcat',
+        'panel.enabledByDefault': 'Enable on sites without an override',
+        'panel.siteEnabled': 'Enable for {hostname}',
+        'panel.siteTheme': 'Use theme settings for this site only',
+        'panel.theme': 'Theme',
+        'panel.engine': 'Rendering engine',
+        'panel.colorMode': 'Color mode',
+        'panel.modeDark': 'Dark',
+        'panel.modeDimmed': 'Dimmed',
+        'panel.brightness': 'Brightness',
+        'panel.contrast': 'Contrast',
+        'panel.grayscale': 'Grayscale',
+        'panel.sepia': 'Sepia',
+        'panel.textStroke': 'Text stroke',
+        'panel.useFont': 'Use custom font',
+        'panel.fontFamily': 'Font family',
+        'panel.systemControls': 'Style system controls',
+        'panel.detectDark': 'Do not theme pages that already use a dark theme',
+        'panel.colors': 'Colors',
+        'panel.darkBackground': 'Dark background',
+        'panel.darkText': 'Dark text',
+        'panel.dimmedBackground': 'Dimmed background',
+        'panel.dimmedText': 'Dimmed text',
+        'panel.selectionColor': 'Selection color (auto or hex)',
+        'panel.scrollbarColor': 'Scrollbar color (auto, blank, or hex)',
+        'panel.automation': 'Automation',
+        'panel.automationMode': 'Mode',
+        'panel.automationOff': 'Off',
+        'panel.automationSystem': 'Follow system color scheme',
+        'panel.automationTime': 'Time schedule',
+        'panel.automationLocation': 'Sunrise and sunset',
+        'panel.automationBehavior': 'When automation chooses light',
+        'panel.behaviorOff': 'Turn Dark Reader off',
+        'panel.behaviorDimmed': 'Use the dimmed theme',
+        'panel.turnOnAt': 'Turn on at',
+        'panel.turnOffAt': 'Turn off at',
+        'panel.locationNote': 'Coordinates stay in this script manager; Blackcat does not request device location.',
+        'panel.latitude': 'Latitude (-90 to 90)',
+        'panel.longitude': 'Longitude (-180 to 180)',
+        'panel.reset': 'Reset defaults',
+        'panel.cancel': 'Cancel',
+        'panel.save': 'Save',
+        'panel.saveError': 'Settings could not be saved. Please retry.',
+    });
+
+    const SIMPLIFIED_CHINESE = Object.freeze({
+        'menu.settings': '设置',
+        'menu.site': '切换此网站',
+        'menu.global': '全局开关',
+        'menu.engine': '主题引擎：{engine}（切换）',
+        'menu.colorMode': '色彩模式：{mode}（切换）',
+        'menu.brightnessDown': '亮度：{value}%（-10）',
+        'menu.brightnessUp': '亮度：{value}%（+10）',
+        'menu.contrastDown': '对比度：{value}%（-10）',
+        'menu.contrastUp': '对比度：{value}%（+10）',
+        'menu.automation': '自动切换：{mode}（切换）',
+        'engine.dynamic': '动态主题',
+        'engine.filter': '滤镜',
+        'engine.svgFilter': '增强滤镜（SVG）',
+        'engine.static': '静态主题',
+        'mode.dark': '深色',
+        'mode.dimmed': '柔和',
+        'automation.none': '关闭',
+        'automation.system': '跟随系统',
+        'automation.time': '按时间',
+        'automation.location': '日出/日落',
+        'panel.title': 'Blackcat · 深色模式',
+        'panel.enablement': '启用选项',
+        'panel.enabled': '启用 Blackcat',
+        'panel.enabledByDefault': '默认在所有网站启用',
+        'panel.siteEnabled': '为 {hostname} 启用 Blackcat',
+        'panel.siteTheme': '仅对此网站使用单独的主题设置',
+        'panel.theme': '主题',
+        'panel.engine': '渲染引擎',
+        'panel.colorMode': '色彩模式',
+        'panel.modeDark': '深色',
+        'panel.modeDimmed': '柔和',
+        'panel.brightness': '亮度',
+        'panel.contrast': '对比度',
+        'panel.grayscale': '灰度',
+        'panel.sepia': '棕褐色',
+        'panel.textStroke': '文字描边',
+        'panel.useFont': '使用自定义字体',
+        'panel.fontFamily': '字体',
+        'panel.systemControls': '适配系统控件',
+        'panel.detectDark': '跳过已使用深色主题的网站',
+        'panel.colors': '颜色',
+        'panel.darkBackground': '深色背景',
+        'panel.darkText': '深色文字',
+        'panel.dimmedBackground': '柔和背景',
+        'panel.dimmedText': '柔和文字',
+        'panel.selectionColor': '选中文本颜色（自动或十六进制）',
+        'panel.scrollbarColor': '滚动条颜色（自动、留空或十六进制）',
+        'panel.automation': '自动切换',
+        'panel.automationMode': '模式',
+        'panel.automationOff': '关闭',
+        'panel.automationSystem': '跟随系统配色',
+        'panel.automationTime': '按时间切换',
+        'panel.automationLocation': '按日出和日落切换',
+        'panel.automationBehavior': '自动切换到浅色时',
+        'panel.behaviorOff': '关闭深色模式',
+        'panel.behaviorDimmed': '使用柔和主题',
+        'panel.turnOnAt': '开启时间',
+        'panel.turnOffAt': '关闭时间',
+        'panel.locationNote': '坐标仅保存在此脚本管理器中；Blackcat 不会请求设备定位权限。',
+        'panel.latitude': '纬度（-90 至 90）',
+        'panel.longitude': '经度（-180 至 180）',
+        'panel.reset': '恢复默认设置',
+        'panel.cancel': '取消',
+        'panel.save': '保存',
+        'panel.saveError': '设置保存失败，请重试。',
+    });
+
+    Object.freeze(Object.keys(ENGLISH));
+
+    function detectLanguage(locale = globalThis.navigator?.language) {
+        return typeof locale === 'string' && locale.toLowerCase().startsWith('zh') ? 'zh-CN' : 'en';
+    }
+
+    function translate(key, language = 'en', values = {}) {
+        const messages = language.toLowerCase().startsWith('zh') ? SIMPLIFIED_CHINESE : ENGLISH;
+        const template = messages[key] ?? ENGLISH[key] ?? key;
+        return template.replace(/\{([A-Za-z0-9_]+)\}/g, (_match, name) => String(values[name] ?? `{${name}}`));
+    }
+
     const HOST_ID = 'blackcat-settings-panel';
 
     const THEME_SETTING_KEYS = [
@@ -314,7 +462,8 @@
     ];
     const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke']);
 
-    function openSettingsPanel({settings, hostname, onSave}) {
+    function openSettingsPanel({settings, hostname, onSave, language = detectLanguage()}) {
+        const t = (key, values) => translate(key, language, values);
         const themeSettings = resolveThemeForSite(settings, location.href);
         const hasSiteTheme = Object.hasOwn(settings.siteThemes, hostname.toLowerCase());
         const existing = document.getElementById(HOST_ID);
@@ -355,13 +504,14 @@
         const panel = document.createElement('section');
         panel.className = 'panel';
         panel.setAttribute('role', 'dialog');
+        panel.setAttribute('lang', language);
         panel.setAttribute('aria-modal', 'true');
         panel.setAttribute('aria-labelledby', 'blackcat-title');
         panel.tabIndex = -1;
 
         const heading = document.createElement('h1');
         heading.id = 'blackcat-title';
-        heading.textContent = 'Blackcat · Dark Reader';
+        heading.textContent = t('panel.title');
         const status = document.createElement('p');
         status.setAttribute('role', 'status');
         status.hidden = true;
@@ -431,43 +581,43 @@
         const grid = document.createElement('div');
         grid.className = 'grid';
 
-        addText(form, 'Enablement');
-        addCheck(form, 'Enable Blackcat', 'enabled', settings.enabled);
-        addCheck(form, 'Enable on sites without an override', 'enabledByDefault', settings.enabledByDefault);
-        addCheck(form, `Enable for ${hostname}`, 'siteEnabled', resolveSiteEnabled(settings, location.href));
-        addCheck(form, 'Use theme settings for this site only', 'siteThemeOnly', hasSiteTheme);
+        addText(form, t('panel.enablement'));
+        addCheck(form, t('panel.enabled'), 'enabled', settings.enabled);
+        addCheck(form, t('panel.enabledByDefault'), 'enabledByDefault', settings.enabledByDefault);
+        addCheck(form, t('panel.siteEnabled', {hostname}), 'siteEnabled', resolveSiteEnabled(settings, location.href));
+        addCheck(form, t('panel.siteTheme'), 'siteThemeOnly', hasSiteTheme);
 
-        addText(form, 'Theme');
-        addSelect(grid, 'Rendering engine', 'engine', themeSettings.engine, [
-            ['dynamicTheme', 'Dynamic theme'],
-            ['cssFilter', 'Filter'],
-            ['svgFilter', 'Filter+ (SVG)'],
-            ['staticTheme', 'Static theme'],
+        addText(form, t('panel.theme'));
+        addSelect(grid, t('panel.engine'), 'engine', themeSettings.engine, [
+            ['dynamicTheme', t('engine.dynamic')],
+            ['cssFilter', t('engine.filter')],
+            ['svgFilter', t('engine.svgFilter')],
+            ['staticTheme', t('engine.static')],
         ]);
-        addSelect(grid, 'Color mode', 'mode', themeSettings.mode, [['1', 'Dark'], ['0', 'Dimmed']]);
+        addSelect(grid, t('panel.colorMode'), 'mode', themeSettings.mode, [['1', t('panel.modeDark')], ['0', t('panel.modeDimmed')]]);
         form.append(grid);
-        addRange(form, 'Brightness', 'brightness', themeSettings.brightness, 50, 150, 1, '%');
-        addRange(form, 'Contrast', 'contrast', themeSettings.contrast, 50, 150, 1, '%');
-        addRange(form, 'Grayscale', 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
-        addRange(form, 'Sepia', 'sepia', themeSettings.sepia, 0, 100, 1, '%');
-        addRange(form, 'Text stroke', 'textStroke', themeSettings.textStroke, 0, 1, 0.1, 'px');
-        addCheck(form, 'Use custom font', 'useFont', themeSettings.useFont);
+        addRange(form, t('panel.brightness'), 'brightness', themeSettings.brightness, 50, 150, 1, '%');
+        addRange(form, t('panel.contrast'), 'contrast', themeSettings.contrast, 50, 150, 1, '%');
+        addRange(form, t('panel.grayscale'), 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
+        addRange(form, t('panel.sepia'), 'sepia', themeSettings.sepia, 0, 100, 1, '%');
+        addRange(form, t('panel.textStroke'), 'textStroke', themeSettings.textStroke, 0, 1, 0.1, 'px');
+        addCheck(form, t('panel.useFont'), 'useFont', themeSettings.useFont);
         const font = document.createElement('input');
         font.type = 'text';
         font.maxLength = 200;
         font.value = themeSettings.fontFamily;
-        controls.fontFamily = addField(form, 'Font family', font);
-        addCheck(form, 'Style system controls', 'styleSystemControls', themeSettings.styleSystemControls);
-        addCheck(form, 'Do not theme pages that already use a dark theme', 'detectDarkTheme', themeSettings.detectDarkTheme);
+        controls.fontFamily = addField(form, t('panel.fontFamily'), font);
+        addCheck(form, t('panel.systemControls'), 'styleSystemControls', themeSettings.styleSystemControls);
+        addCheck(form, t('panel.detectDark'), 'detectDarkTheme', themeSettings.detectDarkTheme);
 
-        addText(form, 'Colors');
+        addText(form, t('panel.colors'));
         const colorGrid = document.createElement('div');
         colorGrid.className = 'grid';
         for (const [key, labelText] of [
-            ['darkSchemeBackgroundColor', 'Dark background'],
-            ['darkSchemeTextColor', 'Dark text'],
-            ['lightSchemeBackgroundColor', 'Dimmed background'],
-            ['lightSchemeTextColor', 'Dimmed text'],
+            ['darkSchemeBackgroundColor', t('panel.darkBackground')],
+            ['darkSchemeTextColor', t('panel.darkText')],
+            ['lightSchemeBackgroundColor', t('panel.dimmedBackground')],
+            ['lightSchemeTextColor', t('panel.dimmedText')],
         ]) {
             const input = document.createElement('input');
             input.type = 'color';
@@ -478,38 +628,38 @@
         selection.type = 'text';
         selection.maxLength = 9;
         selection.value = themeSettings.selectionColor;
-        controls.selectionColor = addField(colorGrid, 'Selection color (auto or hex)', selection);
+        controls.selectionColor = addField(colorGrid, t('panel.selectionColor'), selection);
         const scrollbar = document.createElement('input');
         scrollbar.type = 'text';
         scrollbar.maxLength = 9;
         scrollbar.value = themeSettings.scrollbarColor;
-        controls.scrollbarColor = addField(colorGrid, 'Scrollbar color (auto, blank, or hex)', scrollbar);
+        controls.scrollbarColor = addField(colorGrid, t('panel.scrollbarColor'), scrollbar);
         form.append(colorGrid);
 
-        addText(form, 'Automation');
-        addSelect(form, 'Mode', 'automationMode', settings.automation.mode, [
-            ['none', 'Off'],
-            ['system', 'Follow system color scheme'],
-            ['time', 'Time schedule'],
-            ['location', 'Sunrise and sunset'],
+        addText(form, t('panel.automation'));
+        addSelect(form, t('panel.automationMode'), 'automationMode', settings.automation.mode, [
+            ['none', t('panel.automationOff')],
+            ['system', t('panel.automationSystem')],
+            ['time', t('panel.automationTime')],
+            ['location', t('panel.automationLocation')],
         ]);
-        addSelect(form, 'When automation chooses light', 'automationBehavior', settings.automation.behavior, [
-            ['OnOff', 'Turn Dark Reader off'],
-            ['Scheme', 'Use the dimmed theme'],
+        addSelect(form, t('panel.automationBehavior'), 'automationBehavior', settings.automation.behavior, [
+            ['OnOff', t('panel.behaviorOff')],
+            ['Scheme', t('panel.behaviorDimmed')],
         ]);
         const timeGrid = document.createElement('div');
         timeGrid.className = 'grid';
         const activation = document.createElement('input');
         activation.type = 'time';
         activation.value = settings.automation.activation;
-        controls.activation = addField(timeGrid, 'Turn on at', activation);
+        controls.activation = addField(timeGrid, t('panel.turnOnAt'), activation);
         const deactivation = document.createElement('input');
         deactivation.type = 'time';
         deactivation.value = settings.automation.deactivation;
-        controls.deactivation = addField(timeGrid, 'Turn off at', deactivation);
+        controls.deactivation = addField(timeGrid, t('panel.turnOffAt'), deactivation);
         form.append(timeGrid);
         const locationNote = document.createElement('p');
-        locationNote.textContent = 'Coordinates are stored in this script manager only; Blackcat does not request device location.';
+        locationNote.textContent = t('panel.locationNote');
         form.append(locationNote);
         const locationGrid = document.createElement('div');
         locationGrid.className = 'grid';
@@ -519,28 +669,28 @@
         latitude.max = '90';
         latitude.step = 'any';
         latitude.value = settings.location.latitude ?? '';
-        controls.latitude = addField(locationGrid, 'Latitude (-90 to 90)', latitude);
+        controls.latitude = addField(locationGrid, t('panel.latitude'), latitude);
         const longitude = document.createElement('input');
         longitude.type = 'number';
         longitude.min = '-180';
         longitude.max = '180';
         longitude.step = 'any';
         longitude.value = settings.location.longitude ?? '';
-        controls.longitude = addField(locationGrid, 'Longitude (-180 to 180)', longitude);
+        controls.longitude = addField(locationGrid, t('panel.longitude'), longitude);
         form.append(locationGrid);
 
         const actions = document.createElement('div');
         actions.className = 'actions';
         const reset = document.createElement('button');
         reset.type = 'button';
-        reset.textContent = 'Reset defaults';
+        reset.textContent = t('panel.reset');
         const cancel = document.createElement('button');
         cancel.type = 'button';
-        cancel.textContent = 'Cancel';
+        cancel.textContent = t('panel.cancel');
         const save = document.createElement('button');
         save.type = 'submit';
         save.className = 'primary';
-        save.textContent = 'Save';
+        save.textContent = t('panel.save');
         actions.append(reset, cancel, save);
         form.append(actions);
         panel.append(form);
@@ -637,7 +787,7 @@
                 close();
             } catch {
                 status.hidden = false;
-                status.textContent = 'Settings could not be saved. Please retry.';
+                status.textContent = t('panel.saveError');
             } finally {
                 save.disabled = false;
             }
@@ -744,10 +894,13 @@
     async function start() {
         let settings = await readSettings();
         const hostname = location.hostname.toLowerCase();
+        const language = detectLanguage();
+        const t = (key, values) => translate(key, language, values);
 
-        register('Settings', () => openSettingsPanel({
+        register(t('menu.settings'), () => openSettingsPanel({
             settings,
             hostname,
+            language,
             onSave: async (next) => {
                 settings = normalizeSettings(next);
                 await persist(settings);
@@ -756,7 +909,7 @@
             },
         }));
 
-        register('Toggle this site', async () => {
+        register(t('menu.site'), async () => {
             settings = await update((current) => setSiteOverride(
                 current,
                 hostname,
@@ -764,31 +917,43 @@
             ));
         });
 
-        register('Toggle globally', async () => {
+        register(t('menu.global'), async () => {
             settings = await update((current) => ({...current, enabled: !current.enabled}));
         });
 
-        register(`Theme engine: ${settings.engine} (cycle)`, async () => {
+        const engineMessage = {
+            dynamicTheme: 'engine.dynamic',
+            cssFilter: 'engine.filter',
+            svgFilter: 'engine.svgFilter',
+            staticTheme: 'engine.static',
+        };
+        register(t('menu.engine', {engine: t(engineMessage[settings.engine])}), async () => {
             settings = await update((current) => ({...current, engine: cycleEngine(current.engine)}));
         });
 
-        register(`Color mode: ${settings.mode ? 'dark' : 'dimmed'} (toggle)`, async () => {
+        register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), async () => {
             settings = await update((current) => ({...current, mode: current.mode ? 0 : 1}));
         });
 
-        register(`Brightness: ${settings.brightness}% (-10)`, async () => {
+        register(t('menu.brightnessDown', {value: settings.brightness}), async () => {
             settings = await update((current) => ({...current, brightness: current.brightness - 10}));
         });
-        register(`Brightness: ${settings.brightness}% (+10)`, async () => {
+        register(t('menu.brightnessUp', {value: settings.brightness}), async () => {
             settings = await update((current) => ({...current, brightness: current.brightness + 10}));
         });
-        register(`Contrast: ${settings.contrast}% (-10)`, async () => {
+        register(t('menu.contrastDown', {value: settings.contrast}), async () => {
             settings = await update((current) => ({...current, contrast: current.contrast - 10}));
         });
-        register(`Contrast: ${settings.contrast}% (+10)`, async () => {
+        register(t('menu.contrastUp', {value: settings.contrast}), async () => {
             settings = await update((current) => ({...current, contrast: current.contrast + 10}));
         });
-        register(`Automation: ${settings.automation.mode} (cycle)`, async () => {
+        const automationMessage = {
+            none: 'automation.none',
+            system: 'automation.system',
+            time: 'automation.time',
+            location: 'automation.location',
+        };
+        register(t('menu.automation', {mode: t(automationMessage[settings.automation.mode])}), async () => {
             const modes = ['none', 'system', 'time', 'location'];
             settings = await update((current) => ({
                 ...current,

@@ -1,6 +1,6 @@
 {
   "name": "blackcat-dark-reader-userscript",
-  "version": "0.1.0-beta.3",
+  "version": "0.1.0-beta.4",
   "description": "A free, auditable Dark Reader userscript",
   "license": "MIT",
   "repository": "github:Ckrvxr/blackcat",
@@ -11,7 +11,7 @@
     "node": ">=22"
   },
   "scripts": {
-    "test": "node --test tests/settings.test.mjs tests/metadata.test.mjs",
+    "test": "node --test tests/settings.test.mjs tests/metadata.test.mjs tests/i18n.test.mjs",
     "test:artifact": "node --test tests/artifact.test.mjs",
     "build": "node scripts/build.mjs",
     "verify:reproducible": "node scripts/verify-reproducible.mjs",

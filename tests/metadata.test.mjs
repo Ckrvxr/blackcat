@@ -10,6 +10,7 @@ test('installer metadata pins the external engine to an explicit release ref', (
     assert.match(metadata, /@run-at\s+document-start/);
     assert.match(metadata, /@require\s+https:\/\/cdn\.jsdelivr\.net\/gh\/Ckrvxr\/blackcat@v0\.1\.0\/dist\/engine\.js/);
     assert.match(metadata, /@grant\s+GM_registerMenuCommand/);
+    assert.match(metadata, /网页深色主题/);
     assert.doesNotMatch(metadata, /GM_xmlhttpRequest|@connect/);
 });
 

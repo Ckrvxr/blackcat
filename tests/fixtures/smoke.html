@@ -11,6 +11,8 @@
 <body>
     <main id="sample">A bright page for Dark Reader injection testing.</main>
     <script>
+        const requestedLanguage = new URLSearchParams(location.search).get('lang');
+        if (requestedLanguage) Object.defineProperty(navigator, 'language', {value: requestedLanguage, configurable: true});
         const blackcatStore = new Map();
         globalThis.GM_getValue = (key, fallback) => blackcatStore.has(key) ? blackcatStore.get(key) : fallback;
         globalThis.GM_setValue = (key, value) => blackcatStore.set(key, value);

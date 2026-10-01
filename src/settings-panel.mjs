@@ -1,4 +1,5 @@
 import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, setSiteTheme} from './settings.mjs';
+import {detectLanguage, translate} from './i18n.mjs';
 
 const HOST_ID = 'blackcat-settings-panel';
 
@@ -9,7 +10,8 @@ const THEME_SETTING_KEYS = [
 ];
 const NUMERIC_THEME_KEYS = new Set(['mode', 'brightness', 'contrast', 'grayscale', 'sepia', 'textStroke']);
 
-export function openSettingsPanel({settings, hostname, onSave}) {
+export function openSettingsPanel({settings, hostname, onSave, language = detectLanguage()}) {
+    const t = (key, values) => translate(key, language, values);
     const themeSettings = resolveThemeForSite(settings, location.href);
     const hasSiteTheme = Object.hasOwn(settings.siteThemes, hostname.toLowerCase());
     const existing = document.getElementById(HOST_ID);
@@ -50,13 +52,14 @@ export function openSettingsPanel({settings, hostname, onSave}) {
     const panel = document.createElement('section');
     panel.className = 'panel';
     panel.setAttribute('role', 'dialog');
+    panel.setAttribute('lang', language);
     panel.setAttribute('aria-modal', 'true');
     panel.setAttribute('aria-labelledby', 'blackcat-title');
     panel.tabIndex = -1;
 
     const heading = document.createElement('h1');
     heading.id = 'blackcat-title';
-    heading.textContent = 'Blackcat · Dark Reader';
+    heading.textContent = t('panel.title');
     const status = document.createElement('p');
     status.setAttribute('role', 'status');
     status.hidden = true;
@@ -126,43 +129,43 @@ export function openSettingsPanel({settings, hostname, onSave}) {
     const grid = document.createElement('div');
     grid.className = 'grid';
 
-    addText(form, 'Enablement');
-    addCheck(form, 'Enable Blackcat', 'enabled', settings.enabled);
-    addCheck(form, 'Enable on sites without an override', 'enabledByDefault', settings.enabledByDefault);
-    addCheck(form, `Enable for ${hostname}`, 'siteEnabled', resolveSiteEnabled(settings, location.href));
-    addCheck(form, 'Use theme settings for this site only', 'siteThemeOnly', hasSiteTheme);
+    addText(form, t('panel.enablement'));
+    addCheck(form, t('panel.enabled'), 'enabled', settings.enabled);
+    addCheck(form, t('panel.enabledByDefault'), 'enabledByDefault', settings.enabledByDefault);
+    addCheck(form, t('panel.siteEnabled', {hostname}), 'siteEnabled', resolveSiteEnabled(settings, location.href));
+    addCheck(form, t('panel.siteTheme'), 'siteThemeOnly', hasSiteTheme);
 
-    addText(form, 'Theme');
-    addSelect(grid, 'Rendering engine', 'engine', themeSettings.engine, [
-        ['dynamicTheme', 'Dynamic theme'],
-        ['cssFilter', 'Filter'],
-        ['svgFilter', 'Filter+ (SVG)'],
-        ['staticTheme', 'Static theme'],
+    addText(form, t('panel.theme'));
+    addSelect(grid, t('panel.engine'), 'engine', themeSettings.engine, [
+        ['dynamicTheme', t('engine.dynamic')],
+        ['cssFilter', t('engine.filter')],
+        ['svgFilter', t('engine.svgFilter')],
+        ['staticTheme', t('engine.static')],
     ]);
-    addSelect(grid, 'Color mode', 'mode', themeSettings.mode, [['1', 'Dark'], ['0', 'Dimmed']]);
+    addSelect(grid, t('panel.colorMode'), 'mode', themeSettings.mode, [['1', t('panel.modeDark')], ['0', t('panel.modeDimmed')]]);
     form.append(grid);
-    addRange(form, 'Brightness', 'brightness', themeSettings.brightness, 50, 150, 1, '%');
-    addRange(form, 'Contrast', 'contrast', themeSettings.contrast, 50, 150, 1, '%');
-    addRange(form, 'Grayscale', 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
-    addRange(form, 'Sepia', 'sepia', themeSettings.sepia, 0, 100, 1, '%');
-    addRange(form, 'Text stroke', 'textStroke', themeSettings.textStroke, 0, 1, 0.1, 'px');
-    addCheck(form, 'Use custom font', 'useFont', themeSettings.useFont);
+    addRange(form, t('panel.brightness'), 'brightness', themeSettings.brightness, 50, 150, 1, '%');
+    addRange(form, t('panel.contrast'), 'contrast', themeSettings.contrast, 50, 150, 1, '%');
+    addRange(form, t('panel.grayscale'), 'grayscale', themeSettings.grayscale, 0, 100, 1, '%');
+    addRange(form, t('panel.sepia'), 'sepia', themeSettings.sepia, 0, 100, 1, '%');
+    addRange(form, t('panel.textStroke'), 'textStroke', themeSettings.textStroke, 0, 1, 0.1, 'px');
+    addCheck(form, t('panel.useFont'), 'useFont', themeSettings.useFont);
     const font = document.createElement('input');
     font.type = 'text';
     font.maxLength = 200;
     font.value = themeSettings.fontFamily;
-    controls.fontFamily = addField(form, 'Font family', font);
-    addCheck(form, 'Style system controls', 'styleSystemControls', themeSettings.styleSystemControls);
-    addCheck(form, 'Do not theme pages that already use a dark theme', 'detectDarkTheme', themeSettings.detectDarkTheme);
+    controls.fontFamily = addField(form, t('panel.fontFamily'), font);
+    addCheck(form, t('panel.systemControls'), 'styleSystemControls', themeSettings.styleSystemControls);
+    addCheck(form, t('panel.detectDark'), 'detectDarkTheme', themeSettings.detectDarkTheme);
 
-    addText(form, 'Colors');
+    addText(form, t('panel.colors'));
     const colorGrid = document.createElement('div');
     colorGrid.className = 'grid';
     for (const [key, labelText] of [
-        ['darkSchemeBackgroundColor', 'Dark background'],
-        ['darkSchemeTextColor', 'Dark text'],
-        ['lightSchemeBackgroundColor', 'Dimmed background'],
-        ['lightSchemeTextColor', 'Dimmed text'],
+        ['darkSchemeBackgroundColor', t('panel.darkBackground')],
+        ['darkSchemeTextColor', t('panel.darkText')],
+        ['lightSchemeBackgroundColor', t('panel.dimmedBackground')],
+        ['lightSchemeTextColor', t('panel.dimmedText')],
     ]) {
         const input = document.createElement('input');
         input.type = 'color';
@@ -173,38 +176,38 @@ export function openSettingsPanel({settings, hostname, onSave}) {
     selection.type = 'text';
     selection.maxLength = 9;
     selection.value = themeSettings.selectionColor;
-    controls.selectionColor = addField(colorGrid, 'Selection color (auto or hex)', selection);
+    controls.selectionColor = addField(colorGrid, t('panel.selectionColor'), selection);
     const scrollbar = document.createElement('input');
     scrollbar.type = 'text';
     scrollbar.maxLength = 9;
     scrollbar.value = themeSettings.scrollbarColor;
-    controls.scrollbarColor = addField(colorGrid, 'Scrollbar color (auto, blank, or hex)', scrollbar);
+    controls.scrollbarColor = addField(colorGrid, t('panel.scrollbarColor'), scrollbar);
     form.append(colorGrid);
 
-    addText(form, 'Automation');
-    addSelect(form, 'Mode', 'automationMode', settings.automation.mode, [
-        ['none', 'Off'],
-        ['system', 'Follow system color scheme'],
-        ['time', 'Time schedule'],
-        ['location', 'Sunrise and sunset'],
+    addText(form, t('panel.automation'));
+    addSelect(form, t('panel.automationMode'), 'automationMode', settings.automation.mode, [
+        ['none', t('panel.automationOff')],
+        ['system', t('panel.automationSystem')],
+        ['time', t('panel.automationTime')],
+        ['location', t('panel.automationLocation')],
     ]);
-    addSelect(form, 'When automation chooses light', 'automationBehavior', settings.automation.behavior, [
-        ['OnOff', 'Turn Dark Reader off'],
-        ['Scheme', 'Use the dimmed theme'],
+    addSelect(form, t('panel.automationBehavior'), 'automationBehavior', settings.automation.behavior, [
+        ['OnOff', t('panel.behaviorOff')],
+        ['Scheme', t('panel.behaviorDimmed')],
     ]);
     const timeGrid = document.createElement('div');
     timeGrid.className = 'grid';
     const activation = document.createElement('input');
     activation.type = 'time';
     activation.value = settings.automation.activation;
-    controls.activation = addField(timeGrid, 'Turn on at', activation);
+    controls.activation = addField(timeGrid, t('panel.turnOnAt'), activation);
     const deactivation = document.createElement('input');
     deactivation.type = 'time';
     deactivation.value = settings.automation.deactivation;
-    controls.deactivation = addField(timeGrid, 'Turn off at', deactivation);
+    controls.deactivation = addField(timeGrid, t('panel.turnOffAt'), deactivation);
     form.append(timeGrid);
     const locationNote = document.createElement('p');
-    locationNote.textContent = 'Coordinates are stored in this script manager only; Blackcat does not request device location.';
+    locationNote.textContent = t('panel.locationNote');
     form.append(locationNote);
     const locationGrid = document.createElement('div');
     locationGrid.className = 'grid';
@@ -214,28 +217,28 @@ export function openSettingsPanel({settings, hostname, onSave}) {
     latitude.max = '90';
     latitude.step = 'any';
     latitude.value = settings.location.latitude ?? '';
-    controls.latitude = addField(locationGrid, 'Latitude (-90 to 90)', latitude);
+    controls.latitude = addField(locationGrid, t('panel.latitude'), latitude);
     const longitude = document.createElement('input');
     longitude.type = 'number';
     longitude.min = '-180';
     longitude.max = '180';
     longitude.step = 'any';
     longitude.value = settings.location.longitude ?? '';
-    controls.longitude = addField(locationGrid, 'Longitude (-180 to 180)', longitude);
+    controls.longitude = addField(locationGrid, t('panel.longitude'), longitude);
     form.append(locationGrid);
 
     const actions = document.createElement('div');
     actions.className = 'actions';
     const reset = document.createElement('button');
     reset.type = 'button';
-    reset.textContent = 'Reset defaults';
+    reset.textContent = t('panel.reset');
     const cancel = document.createElement('button');
     cancel.type = 'button';
-    cancel.textContent = 'Cancel';
+    cancel.textContent = t('panel.cancel');
     const save = document.createElement('button');
     save.type = 'submit';
     save.className = 'primary';
-    save.textContent = 'Save';
+    save.textContent = t('panel.save');
     actions.append(reset, cancel, save);
     form.append(actions);
     panel.append(form);
@@ -332,7 +335,7 @@ export function openSettingsPanel({settings, hostname, onSave}) {
             close();
         } catch {
             status.hidden = false;
-            status.textContent = 'Settings could not be saved. Please retry.';
+            status.textContent = t('panel.saveError');
         } finally {
             save.disabled = false;
         }

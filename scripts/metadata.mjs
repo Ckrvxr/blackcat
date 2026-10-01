@@ -16,7 +16,7 @@ export function createUserscriptMetadata({version, assetRef}) {
         '// @name         Blackcat Dark Reader',
         '// @namespace    https://github.com/Ckrvxr/blackcat',
         '// @version      ' + version,
-        '// @description  Dark Reader page themes for userscript managers',
+        '// @description  Dark Reader page themes / 网页深色主题',
         '// @match        *://*/*',
         '// @run-at       document-start',
         '// @grant        GM_getValue',

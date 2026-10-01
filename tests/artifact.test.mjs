@@ -25,6 +25,12 @@ test('userscript menu labels omit the redundant project prefix', () => {
     assert.doesNotMatch(script, /registerMenu\(`\[Blackcat\] \$\{label\}`, callback\)/);
 });
 
+test('userscript bundle includes Simplified Chinese UI messages', () => {
+    assert.ok(script.includes('切换此网站'));
+    assert.ok(script.includes('启用选项'));
+    assert.ok(script.includes('恢复默认设置'));
+});
+
 test('engine API is explicitly exposed on the userscript global', () => {
     assert.ok(engine.includes('Object.assign(globalThis,{BlackcatDarkReaderEngine:'), 'engine must attach its API to the userscript global');
 });
