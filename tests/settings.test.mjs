@@ -2,11 +2,17 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, setSiteOverride, resolveThemeForSite, setSiteTheme, toThemeOptions, resolveAutomationState, isWithinTimeWindow} from '../src/settings.mjs';
 
-test('defaults enable Dark Reader dynamically and follow system preference', () => {
+test('defaults to an always-dark theme with no configurable scheme palette', () => {
     assert.equal(DEFAULT_SETTINGS.enabled, true);
     assert.equal(DEFAULT_SETTINGS.detectDarkTheme, true);
     assert.equal(DEFAULT_SETTINGS.styleSystemControls, false);
     assert.equal(DEFAULT_SETTINGS.engine, 'dynamicTheme');
+    assert.equal(DEFAULT_SETTINGS.mode, undefined);
+    assert.equal(toThemeOptions(DEFAULT_SETTINGS).mode, 1);
+    for (const key of ['darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
+        assert.equal(Object.hasOwn(DEFAULT_SETTINGS, key), false);
+        assert.equal(Object.hasOwn(toThemeOptions(DEFAULT_SETTINGS), key), false);
+    }
     assert.equal(DEFAULT_SETTINGS.automation.mode, 'none');
     assert.equal(DEFAULT_SETTINGS.language, 'auto');
 });
@@ -55,18 +61,28 @@ test('removes legacy font and text stroke settings from data and engine options'
     assert.equal(Object.hasOwn(options, 'textStroke'), false);
 });
 
-test('normalizes colors, selection, scrollbars, and system-control options', () => {
+test('drops legacy dimmed mode and color overrides from settings and engine options', () => {
     const settings = normalizeSettings({
+        mode: 0,
         darkSchemeBackgroundColor: '#123456',
+        darkSchemeTextColor: '#abcdef',
+        lightSchemeBackgroundColor: '#eeeeee',
+        lightSchemeTextColor: '#111111',
         selectionColor: '#abcdef',
-        scrollbarColor: 'auto',
+        scrollbarColor: '#123',
         styleSystemControls: false,
         detectDarkTheme: false,
+        automation: {mode: 'system', behavior: 'Scheme'},
     });
+    const options = toThemeOptions(settings);
 
-    assert.equal(settings.darkSchemeBackgroundColor, '#123456');
-    assert.equal(settings.selectionColor, '#abcdef');
-    assert.equal(settings.scrollbarColor, 'auto');
+    assert.equal(options.mode, 1);
+    assert.equal(settings.mode, undefined);
+    assert.equal(settings.automation.behavior, undefined);
+    for (const key of ['darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor']) {
+        assert.equal(settings[key], undefined);
+        assert.equal(options[key], undefined);
+    }
     assert.equal(settings.styleSystemControls, false);
     assert.equal(settings.detectDarkTheme, false);
 });
@@ -128,17 +144,14 @@ test('site theme overrides apply only to their matching host', () => {
     assert.equal(Object.hasOwn(safeTheme, 'injected'), false);
 });
 
-test('automation can turn off or switch to the dimmed color scheme', () => {
+test('automation only turns the fixed dark theme on or off', () => {
     const settings = normalizeSettings({automation: {mode: 'system', behavior: 'Scheme'}});
-    assert.deepEqual(resolveAutomationState(settings, {systemDark: false}), {enabled: true, mode: 0});
-    assert.deepEqual(resolveAutomationState(settings, {systemDark: true}), {enabled: true, mode: 1});
-
-    const turnOff = normalizeSettings({automation: {mode: 'system', behavior: 'OnOff'}});
-    assert.deepEqual(resolveAutomationState(turnOff, {systemDark: false}), {enabled: false, mode: 1});
+    assert.deepEqual(resolveAutomationState(settings, {systemDark: false}), {enabled: false});
+    assert.deepEqual(resolveAutomationState(settings, {systemDark: true}), {enabled: true});
 
     const location = normalizeSettings({automation: {mode: 'location', behavior: 'Scheme'}});
-    assert.deepEqual(resolveAutomationState(location, {locationNight: false}), {enabled: true, mode: 0});
-    assert.deepEqual(resolveAutomationState(location, {locationNight: true}), {enabled: true, mode: 1});
+    assert.deepEqual(resolveAutomationState(location, {locationNight: false}), {enabled: false});
+    assert.deepEqual(resolveAutomationState(location, {locationNight: true}), {enabled: true});
 });
 
 test('location automation accepts only bounded, explicit coordinates', () => {

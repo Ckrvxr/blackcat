@@ -32,7 +32,6 @@ export const PANEL_STYLE = `
         border-radius: 7px; padding: 6px 8px; background: #222936; font-size: 13px; }
     select { padding-right: 3px; }
     input[type="range"] { width: 100%; margin: 0; accent-color: #9dc2ff; cursor: pointer; }
-    input[type="color"] { width: 44px; height: 30px; padding: 3px; background: #222936; border: 1px solid #414b5b; border-radius: 7px; cursor: pointer; }
     input[type="checkbox"] { appearance: none; flex-shrink: 0; position: relative; width: 34px; height: 20px; border: 1px solid #667184;
         margin: 0; border-radius: 12px; background: #343e4d; cursor: pointer; }
     input[type="checkbox"]::before { content: ''; position: absolute; top: 3px; left: 3px; width: 12px; height: 12px;
@@ -40,9 +39,6 @@ export const PANEL_STYLE = `
     input[type="checkbox"]:checked { background: #9dc2ff; border-color: #9dc2ff; }
     input[type="checkbox"]:checked::before { background: #17263b; transform: translateX(14px); }
     .hint { margin: 8px 0 12px; color: #a8b4c5; font-size: 12px; line-height: 1.6; }
-    details { margin-top: 14px; padding: 0 12px; border: 1px solid #353d49; border-radius: 10px; background: #1c222c; }
-    summary { padding: 11px 0; color: #dbe2ec; font-size: 13px; cursor: pointer; }
-    .group-title { margin: 14px 0 1px; font-size: 12px; font-weight: 500; color: #a8b4c5; }
     footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 12px 18px; border-top: 1px solid #353d49; background: #151921; }
     .live-note { display: flex; align-items: center; gap: 6px; font-size: 11px; color: #a8b4c5; }
     .live-note::before { content: ''; width: 5px; height: 5px; border-radius: 50%; background: #8ecdb1; flex-shrink: 0; }
@@ -50,7 +46,7 @@ export const PANEL_STYLE = `
     .initialize { padding: 6px 10px; border: 1px solid #414b5b; border-radius: 7px; background: transparent; font-size: 12px; color: #c4cfdf; }
     .initialize:hover { background: #29313e; color: #fff; }
     .status { margin: 0; padding: 10px 18px; font-size: 12px; color: #ffb4b4; background: #42282e; }
-    :is(button, input, select, summary):focus-visible { outline: 2px solid #9dc2ff; outline-offset: 3px; }
+    :is(button, input, select):focus-visible { outline: 2px solid #9dc2ff; outline-offset: 3px; }
     [aria-invalid="true"] { border-color: #ffa8a8 !important; }
     @media (max-width: 420px) { :host { top: 8px !important; right: 8px !important; width: calc(100vw - 16px) !important; }
         .panel { max-height: calc(100dvh - 16px); border-radius: 14px; }

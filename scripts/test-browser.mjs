@@ -46,38 +46,15 @@ try {
         const panel = root.querySelector('[role="dialog"]');
         for (const name of ['theme', 'site', 'automation', 'other']) {
             root.querySelector('[data-tab="' + name + '"]').click();
-            if (name === 'theme') root.querySelector('details').open = true;
             const bounds = panel.getBoundingClientRect();
             const page = root.querySelector('[data-page="' + name + '"]');
             if (bounds.left < 0 || bounds.right > innerWidth || bounds.bottom > innerHeight || panel.scrollWidth > panel.clientWidth || page.scrollWidth > page.clientWidth)
                 throw new Error('Floating panel overflows a narrow viewport: ' + name);
         }
-        return 'Narrow viewport: all four tabs and expanded colors fit';
+        return 'Narrow viewport: all four tabs fit';
     })()`));
     if (!responsive.success) throw new Error(responsive.error || 'Responsive test failed');
     console.log(responsive.data.result);
-    await run('open', `${url}?disabled=1`);
-    const disabledPrepaint = JSON.parse(await run('--json', 'eval', `(() => ({
-        prepaintSeen: globalThis.blackcatPrepaintSeen,
-        themeReadySeen: globalThis.blackcatThemeReadySeen,
-        fallbackPresent: Boolean(document.getElementById('blackcat-prepaint')),
-        engineEnabled: globalThis.BlackcatDarkReaderEngine.isEnabled(),
-    }))()`));
-    if (!disabledPrepaint.success || disabledPrepaint.data.result.prepaintSeen || !disabledPrepaint.data.result.themeReadySeen || disabledPrepaint.data.result.fallbackPresent || disabledPrepaint.data.result.engineEnabled) {
-        throw new Error(`Disabled installation must skip the temporary dark background: ${JSON.stringify(disabledPrepaint.data?.result)}`);
-    }
-    console.log('Disabled setting: prepaint skipped and native colors preserved');
-    await run('open', `${url}?prepaint=off`);
-    const inactiveAutomationPrepaint = JSON.parse(await run('--json', 'eval', `(() => ({
-        prepaintSeen: globalThis.blackcatPrepaintSeen,
-        themeReadySeen: globalThis.blackcatThemeReadySeen,
-        fallbackPresent: Boolean(document.getElementById('blackcat-prepaint')),
-        engineEnabled: globalThis.BlackcatDarkReaderEngine.isEnabled(),
-    }))()`));
-    if (!inactiveAutomationPrepaint.success || inactiveAutomationPrepaint.data.result.prepaintSeen || !inactiveAutomationPrepaint.data.result.themeReadySeen || inactiveAutomationPrepaint.data.result.fallbackPresent || inactiveAutomationPrepaint.data.result.engineEnabled) {
-        throw new Error(`Inactive automation must skip the temporary dark background: ${JSON.stringify(inactiveAutomationPrepaint.data?.result)}`);
-    }
-    console.log('Inactive automation: prepaint skipped and native colors preserved');
 } finally {
     if (browserStarted) await run('close').catch(() => {});
     await new Promise((done) => server.close(done));

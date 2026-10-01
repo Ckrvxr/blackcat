@@ -1,8 +1,8 @@
 # Blackcat Dark Reader Userscript
 
-Blackcat adapts Dark Reader's page-rendering engines for userscript managers. The MIT-licensed install script is self-contained: it bundles the settings adapter, all four Dark Reader engines, and a small early background bootstrap. Dark Reader remains under its upstream MIT license.
+Blackcat adapts Dark Reader's page-rendering engines for userscript managers. The MIT-licensed install script is self-contained: it bundles the settings adapter and all four Dark Reader engines. Dark Reader remains under its upstream MIT license.
 
-**Status: beta.** The current build bundles all four upstream rendering engines (dynamic, CSS filter, SVG filter, static), upstream site-fix databases, persistent per-site enablement and theme overrides, system/time/location automation with turn-off/dimmed-scheme behavior, and a settings panel. Extension DevTools editors/custom theme presets and browser-specific PDF/restricted-page behavior are not ported yet. Language defaults to the browser locale (Simplified Chinese for `zh-*`, English otherwise) and can be overridden in the settings panel. Cross-origin stylesheet/image analysis uses normal page `fetch` and is therefore subject to page CORS; the script deliberately does not request blanket `GM_xmlhttpRequest` access. Real-browser testing has confirmed Chromium with Tampermonkey; Tampermonkey for Safari and Violentmonkey still need verification.
+**Status: beta.** The current build bundles all four upstream rendering engines (dynamic, CSS filter, SVG filter, static), upstream site-fix databases, persistent per-site enablement and theme overrides, system/time/location automation that turns the dark theme on or off, and a settings panel. Extension DevTools editors/custom theme presets and browser-specific PDF/restricted-page behavior are not ported yet. Language defaults to the browser locale (Simplified Chinese for `zh-*`, English otherwise) and can be overridden in the settings panel. Cross-origin stylesheet/image analysis uses normal page `fetch` and is therefore subject to page CORS; the script deliberately does not request blanket `GM_xmlhttpRequest` access. Real-browser testing has confirmed Chromium with Tampermonkey; Tampermonkey for Safari and Violentmonkey still need verification.
 
 ## Build
 
@@ -38,15 +38,15 @@ The install script pins its update and download URLs to the same ref. The defaul
 
 ## Install
 
-After a release is published, open `dist/blackcat.user.js` from GitHub in Tampermonkey or Violentmonkey and confirm installation. The adapter and rendering engine are bundled in one file, removing the external CDN `@require` and its cold install/update fetch. Since managers may cache required scripts, this does not guarantee a large per-navigation speedup. The script still requires userscript storage/menu APIs and does not request broad cross-origin `GM_xmlhttpRequest` access. Its early background style is best-effort: `document-start` is not guaranteed to precede the browser's first paint, so bundling cannot promise to eliminate every flash.
+After a release is published, open `dist/blackcat.user.js` from GitHub in Tampermonkey or Violentmonkey and confirm installation. The adapter and rendering engine are bundled in one file, removing the external CDN `@require` and its cold install/update fetch. Since managers may cache required scripts, this does not guarantee a large per-navigation speedup. The script still requires userscript storage/menu APIs and does not request broad cross-origin `GM_xmlhttpRequest` access. `document-start` injection timing remains manager- and browser-dependent.
 
 ## Settings
 
 Open **More settings** from the existing userscript menu. The nonmodal window sits at the top right and can be closed with × or Escape; the page remains interactive.
 
-- **Theme**: color mode, all four rendering engines, brightness/contrast/grayscale/sepia, system controls, dark-page detection, and collapsible advanced colors.
+- **Theme**: all four rendering engines, brightness/contrast/grayscale/sepia, system controls, and dark-page detection. The theme is always dark; color-palette editing is not exposed.
 - **Site**: enablement and a separate theme for the current hostname. The theme tab indicates whether you are editing global or site-only values.
-- **Automation**: system preference, local-time schedule, or sunrise/sunset from manually entered coordinates. Only controls relevant to the selected mode are shown.
+- **Automation**: system preference, local-time schedule, or sunrise/sunset from manually entered coordinates; automation only enables or disables the dark theme. Only controls relevant to the selected mode are shown.
 - **Other**: interface language and the action to initialize every setting and clear saved site configurations. Global enablement remains in the existing menu; the two global switches are not shown in the panel.
 
 Valid changes apply immediately and are automatically persisted. Slider writes are serialized and coalesced so an older write cannot overwrite the final value. Invalid input is highlighted and does not change stored settings. A storage failure is shown in the window; change the option again to retry. There are no save/cancel actions. Bold option labels mark values different from factory defaults, including site-specific values. **Initialize** is in Other; it restores all defaults, including language and automation, and clears every saved site configuration.

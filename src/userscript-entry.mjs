@@ -36,14 +36,10 @@ function getThemeOptions(settings, now = new Date()) {
             ENGINE?.isNightAtLocation?.(settings.location.latitude, settings.location.longitude, now) === true;
     }
     const automation = resolveAutomationState(themeSettings, context);
-    return automation.enabled ? toThemeOptions({...themeSettings, mode: automation.mode}) : null;
+    return automation.enabled ? toThemeOptions(themeSettings) : null;
 }
 
 let appliedSignature = null;
-
-function signalThemeReady() {
-    document.dispatchEvent(new Event('blackcat:theme-ready'));
-}
 
 function apply(settings, force = true) {
     const themeOptions = getThemeOptions(settings);
@@ -52,7 +48,6 @@ function apply(settings, force = true) {
             ENGINE.disable();
         }
         appliedSignature = null;
-        signalThemeReady();
         return;
     }
     if (!ENGINE || typeof ENGINE.apply !== 'function') {
@@ -61,7 +56,7 @@ function apply(settings, force = true) {
     }
     const signature = JSON.stringify(themeOptions);
     if (force || signature !== appliedSignature) {
-        ENGINE.apply(themeOptions, signalThemeReady);
+        ENGINE.apply(themeOptions);
     }
     appliedSignature = signature;
 }
@@ -109,7 +104,7 @@ async function start() {
     const menuIds = [];
     let menuSignature = null;
     const registerMenuCommands = () => {
-        const signature = JSON.stringify([resolveLanguage(settings.language), resolveSiteEnabled(settings, location.href), settings.enabled, settings.mode]);
+        const signature = JSON.stringify([resolveLanguage(settings.language), resolveSiteEnabled(settings, location.href), settings.enabled]);
         if (signature === menuSignature) return;
         if (menuIds.length > 0) {
             if (typeof unregisterMenu !== 'function' || menuIds.some((id) => id === undefined || id === null)) return;
@@ -127,9 +122,6 @@ async function start() {
             status: t(settings.enabled ? 'state.enabled' : 'state.disabled'),
         }), () => {
             void commit({...settings, enabled: !settings.enabled}).catch(reportSaveError);
-        }));
-        menuIds.push(register(t('menu.colorMode', {mode: t(settings.mode ? 'mode.dark' : 'mode.dimmed')}), () => {
-            void commit({...settings, mode: settings.mode ? 0 : 1}).catch(reportSaveError);
         }));
         menuIds.push(register(t('menu.settings'), () => {
             settingsPanel = openSettingsPanel({settings, hostname, onChange: commit});

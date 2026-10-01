@@ -108,14 +108,11 @@ export function openSettingsPanel({settings, hostname, onChange}) {
     const valid = (control) => {
         const key = control.dataset.setting;
         if (!control.validity.valid) return false;
-        if (key === 'selectionColor' || key === 'scrollbarColor') {
-            return control.value === 'auto' || (key === 'scrollbarColor' && control.value === '') || /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(control.value);
-        }
         return control.type !== 'time' || /^(?:[01]\d|2[0-3]):[0-5]\d$/.test(control.value);
     };
     const readValue = (control) => {
         if (control.type === 'checkbox') return control.checked;
-        if (control.type === 'range' || control.dataset.setting === 'mode') return Number(control.value);
+        if (control.type === 'range') return Number(control.value);
         if (control.type === 'number') return control.value === '' ? null : Number(control.value);
         return control.value;
     };
@@ -157,7 +154,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
             if (type === 'range') element('output', '', caption);
         }
         controls.set(key, control);
-        const inputEvent = ['range', 'text', 'number', 'color'].includes(type) ? 'input' : 'change';
+        const inputEvent = ['range', 'text', 'number'].includes(type) ? 'input' : 'change';
         control.addEventListener(inputEvent, () => {
             if (!valid(control)) {
                 control.setAttribute('aria-invalid', 'true');
@@ -181,25 +178,12 @@ export function openSettingsPanel({settings, hostname, onChange}) {
 
     const theme = pages.get('theme');
     const scope = element('p', 'scope', theme);
-    addSelect(theme, 'mode', 'panel.colorMode', [['1', 'panel.modeDark'], ['0', 'panel.modeDimmed']]);
     addSelect(theme, 'engine', 'panel.engine', [['dynamicTheme', 'engine.dynamic'], ['cssFilter', 'engine.filter'], ['svgFilter', 'engine.svgFilter'], ['staticTheme', 'engine.static']]);
     for (const [key, min, max] of [['brightness', 50, 150], ['contrast', 50, 150], ['grayscale', 0, 100], ['sepia', 0, 100]]) {
         addControl(theme, key, `panel.${key}`, 'range', {min, max, step: 1});
     }
     addCheck(theme, 'styleSystemControls', 'panel.systemControls');
     addCheck(theme, 'detectDarkTheme', 'panel.detectDark');
-    const colors = element('details', '', theme);
-    message(element('summary', '', colors), 'panel.colors');
-    for (const [titleKey, keys] of [
-        ['panel.modeDark', [['darkSchemeBackgroundColor', 'panel.background'], ['darkSchemeTextColor', 'panel.text']]],
-        ['panel.modeDimmed', [['lightSchemeBackgroundColor', 'panel.background'], ['lightSchemeTextColor', 'panel.text']]],
-    ]) {
-        message(element('h2', 'group-title', colors), titleKey);
-        for (const [key, label] of keys) addControl(colors, key, label, 'color');
-    }
-    addControl(colors, 'selectionColor', 'panel.selectionColor', 'text', {maxLength: 7});
-    addControl(colors, 'scrollbarColor', 'panel.scrollbarColor', 'text', {maxLength: 7});
-    hint(colors, 'panel.colorHelp');
 
     const site = pages.get('site');
     element('p', 'site-name', site).textContent = hostname;
@@ -210,8 +194,6 @@ export function openSettingsPanel({settings, hostname, onChange}) {
 
     const automation = pages.get('automation');
     addSelect(automation, 'automation.mode', 'panel.automationMode', [['none', 'panel.automationOff'], ['system', 'panel.automationSystem'], ['time', 'panel.automationTime'], ['location', 'panel.automationLocation']]);
-    const behavior = condition(automation, 'active');
-    addSelect(behavior, 'automation.behavior', 'panel.automationBehavior', [['OnOff', 'panel.behaviorOff'], ['Scheme', 'panel.behaviorDimmed']]);
     const schedule = condition(automation, 'time');
     addControl(schedule, 'automation.activation', 'panel.turnOnAt', 'time');
     addControl(schedule, 'automation.deactivation', 'panel.turnOffAt', 'time');
@@ -249,7 +231,6 @@ export function openSettingsPanel({settings, hostname, onChange}) {
             if (control.getAttribute('aria-invalid') === 'true') continue;
             const value = getPanelValue(current, hostname, key);
             if (control.type === 'checkbox') control.checked = value;
-            else if (control.type === 'color' && value.length === 4) control.value = `#${[...value.slice(1)].map((character) => character + character).join('')}`;
             else control.value = value === null ? '' : String(value);
             const field = control.closest('.field');
             field.classList.toggle('changed', isPanelSettingChanged(current, hostname, key));
@@ -257,8 +238,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
             if (output) output.value = `${value}%`;
         }
         for (const group of body.querySelectorAll('[data-condition]')) {
-            const mode = current.automation.mode;
-            group.hidden = group.dataset.condition === 'active' ? mode === 'none' : group.dataset.condition !== mode;
+            group.hidden = group.dataset.condition !== current.automation.mode;
         }
         updateStatus();
     }

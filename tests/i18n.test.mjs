@@ -17,12 +17,10 @@ test('resolves automatic and explicit language choices', () => {
     assert.equal(resolveLanguage('invalid', 'zh-CN'), 'zh-CN');
 });
 
-test('translates the four visible menu labels and their state values', () => {
+test('translates the three visible menu labels and their state values', () => {
     assert.equal(translate('menu.settings', 'zh-CN'), '⚙️ 更多设置');
     assert.equal(translate('menu.global', 'zh-CN', {status: '关闭'}), '🌍 全局：关闭');
     assert.equal(translate('menu.site', 'zh-CN', {status: '启用'}), '🌐 此网站上: 启用');
-    assert.equal(translate('menu.colorMode', 'zh-CN', {mode: '深色'}), '🌗 色彩模式：深色');
-    assert.equal(translate('menu.colorMode', 'en', {mode: 'dark'}), '🌗 Color mode: dark');
     assert.equal(translate('menu.global', 'en', {status: 'Disabled'}), '🌍 Global: Disabled');
     assert.equal(translate('panel.siteEnabledShort', 'zh-CN'), '在此网站启用');
     assert.equal(translate('panel.reset', 'zh-CN'), '初始化');
@@ -33,7 +31,6 @@ test('prefixes each menu command with a matching emoji', () => {
         'menu.settings': '⚙️',
         'menu.site': '🌐',
         'menu.global': '🌍',
-        'menu.colorMode': '🌗',
     };
     for (const language of ['en', 'zh-CN']) {
         for (const [key, icon] of Object.entries(icons)) {

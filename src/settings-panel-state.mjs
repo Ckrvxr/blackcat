@@ -1,8 +1,8 @@
 import {DEFAULT_SETTINGS, normalizeSettings, resolveSiteEnabled, resolveThemeForSite, setSiteOverride, setSiteTheme, toThemeOptions} from './settings.mjs';
 
-export const THEME_SETTING_KEYS = Object.freeze(Object.keys(toThemeOptions(DEFAULT_SETTINGS)));
+export const THEME_SETTING_KEYS = Object.freeze(Object.keys(toThemeOptions(DEFAULT_SETTINGS)).filter((key) => key !== 'mode'));
 const GLOBAL_KEYS = new Set(['enabled', 'enabledByDefault', 'language']);
-const NESTED_KEYS = new Set(['automation.mode', 'automation.behavior', 'automation.activation', 'automation.deactivation', 'location.latitude', 'location.longitude']);
+const NESTED_KEYS = new Set(['automation.mode', 'automation.activation', 'automation.deactivation', 'location.latitude', 'location.longitude']);
 
 export function getPanelValue(settings, hostname, key) {
     if (key === 'siteThemeOnly') return Object.hasOwn(settings.siteThemes, hostname);
@@ -41,14 +41,8 @@ export function changePanelSetting(settings, hostname, key, value) {
     throw new TypeError(`Unknown panel setting: ${key}`);
 }
 
-function canonicalValue(value) {
-    if (typeof value !== 'string' || !/^#[\da-f]{3}(?:[\da-f]{3})?$/i.test(value)) return value;
-    const hex = value.toLowerCase();
-    return hex.length === 4 ? `#${[...hex.slice(1)].map((character) => character + character).join('')}` : hex;
-}
-
 export function isPanelSettingChanged(settings, hostname, key) {
-    return canonicalValue(getPanelValue(settings, hostname, key)) !== canonicalValue(getPanelValue(DEFAULT_SETTINGS, hostname, key));
+    return getPanelValue(settings, hostname, key) !== getPanelValue(DEFAULT_SETTINGS, hostname, key);
 }
 
 // Apply immediately; serialize storage and coalesce pending slider snapshots.

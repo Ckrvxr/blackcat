@@ -43,7 +43,7 @@ function removeTheme(): void {
     enabled = false;
 }
 
-function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}, onSettled?: () => void): void {
+function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}): void {
     const {detectDarkTheme = true, ...themeOptions} = options;
     const theme = {...DEFAULT_THEME, ...themeOptions} as Theme;
     const url = window.location.href;
@@ -51,12 +51,6 @@ function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}, 
 
     removeTheme();
     const currentRevision = applyRevision;
-    let settled = false;
-    const settle = () => {
-        if (settled || currentRevision !== applyRevision) return;
-        settled = true;
-        onSettled?.();
-    };
     const applyEngine = () => {
         if (currentRevision !== applyRevision) return;
         switch (theme.engine) {
@@ -85,7 +79,6 @@ function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}, 
                 throw new TypeError(`Unsupported Dark Reader theme engine: ${String(theme.engine)}`);
         }
         enabled = true;
-        settle();
     };
 
     if (!detectDarkTheme) {
@@ -96,7 +89,6 @@ function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}, 
     const hints = getDetectorHintsFor(url, detectorHints, detectorHintsIndex);
     runDarkThemeDetector((hasDarkTheme) => {
         if (!hasDarkTheme) applyEngine();
-        else settle();
     }, hints || []);
 }
 

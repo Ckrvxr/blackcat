@@ -14,7 +14,6 @@ export async function runUserscriptPanelBrowserTests() {
     const root = () => document.querySelector('#blackcat-settings-panel').shadowRoot;
     const control = (key) => root().querySelector(`[data-setting="${key}"]`);
     const renderingStyles = () => [...document.querySelectorAll('style.darkreader')]
-        .filter((style) => style.id !== 'blackcat-prepaint')
         .map((style) => style.textContent)
         .join('\n');
     const expectedMode = (engine) => engine === 'dynamicTheme' ? 'dynamic' : engine === 'staticTheme' ? 'static' : 'filter';
@@ -24,11 +23,10 @@ export async function runUserscriptPanelBrowserTests() {
         else input.value = String(value);
         input.dispatchEvent(new Event(['range', 'text', 'number', 'color'].includes(input.type) ? 'input' : 'change', {bubbles: true}));
     };
-    await waitFor(() => Object.keys(globalThis.blackcatCommands || {}).length === 4);
-    await waitFor(() => globalThis.blackcatPrepaintSeen && globalThis.blackcatThemeReadySeen);
-    assert(globalThis.blackcatPrepaintBeforeBody, 'Prepaint must be installed before the page body is parsed');
-    assert(!document.getElementById('blackcat-prepaint'), 'Temporary prepaint style must be removed after engine setup');
-    results.push('bundled prepaint runs before page content and is removed after theme application');
+    await waitFor(() => Object.keys(globalThis.blackcatCommands || {}).length === 3);
+    await waitFor(() => globalThis.BlackcatDarkReaderEngine.isEnabled());
+    assert(!document.getElementById('blackcat-prepaint'), 'Userscript must not inject a temporary background');
+    results.push('self-contained engine initializes normally');
     open();
     const initialSettingsCommand = Object.entries(globalThis.blackcatCommands).find(([label]) => label.startsWith('⚙️'))[1];
     change('detectDarkTheme', false);
@@ -62,7 +60,7 @@ export async function runUserscriptPanelBrowserTests() {
     change('language', 'zh-CN');
     assert(root().querySelector('[role="dialog"]').lang === 'zh-CN', 'Open window must translate immediately');
     assert(Object.keys(globalThis.blackcatCommands).includes('⚙️ 更多设置'), 'Menu labels must translate immediately');
-    assert(Object.keys(globalThis.blackcatCommands).length === 4, 'No menu item may be added');
+    assert(Object.keys(globalThis.blackcatCommands).length === 3, 'Menu must contain only site, global and settings commands');
     assert(renderingStyles() === beforeLanguage, 'UI-only changes must not rebuild the rendering engine');
     await waitFor(() => globalThis.blackcatStoredSettings().language === 'zh-CN');
     root().querySelector('[data-action="close"]').click();
@@ -81,21 +79,18 @@ export async function runUserscriptPanelBrowserTests() {
     change('automation.mode', 'system');
     const systemDark = matchMedia('(prefers-color-scheme: dark)').matches;
     assert(globalThis.BlackcatDarkReaderEngine.isEnabled() === systemDark, 'System automation must choose the current system state');
-    change('automation.behavior', 'Scheme');
-    assert(document.documentElement.getAttribute('data-darkreader-scheme') === (systemDark ? 'dark' : 'dimmed'), 'Automation scheme behavior must choose dark or dimmed immediately');
     change('automation.mode', 'time');
     change('automation.activation', '00:00');
     change('automation.deactivation', '00:00');
-    assert(document.documentElement.getAttribute('data-darkreader-scheme') === 'dimmed', 'An empty time window must choose the dimmed scheme');
+    assert(!globalThis.BlackcatDarkReaderEngine.isEnabled(), 'An empty time window must disable the dark theme');
     change('location.latitude', 30);
     change('location.longitude', 120);
     change('automation.mode', 'location');
     const night = globalThis.BlackcatDarkReaderEngine.isNightAtLocation(30, 120, new Date());
-    assert(document.documentElement.getAttribute('data-darkreader-scheme') === (night ? 'dark' : 'dimmed'), 'Location automation must use the supplied coordinates');
+    assert(globalThis.BlackcatDarkReaderEngine.isEnabled() === night, 'Location automation must only enable or disable the dark theme');
     change('automation.mode', 'none');
-    change('automation.behavior', 'OnOff');
-    await waitFor(() => globalThis.blackcatStoredSettings().automation.mode === 'none' && globalThis.blackcatStoredSettings().automation.behavior === 'OnOff');
-    results.push('system, schedule, location and dimmed automation apply immediately');
+    await waitFor(() => globalThis.blackcatStoredSettings().automation.mode === 'none');
+    results.push('system, schedule and location automation apply immediately');
 
     const globalCommand = () => Object.entries(globalThis.blackcatCommands).find(([label]) => label.startsWith('🌍'))[1];
     globalCommand()();
@@ -122,7 +117,7 @@ export async function runUserscriptPanelBrowserTests() {
     root().querySelector('[data-action="initialize"]').click();
     await waitFor(() => JSON.stringify(globalThis.blackcatStoredSettings()) === JSON.stringify(normalizeSettings(DEFAULT_SETTINGS)));
     assert(root().querySelectorAll('.field.changed').length === 0, 'Initialize should clear all difference markers');
-    assert(Object.keys(globalThis.blackcatCommands).length === 4, 'Initialize should preserve the four-item menu');
+    assert(Object.keys(globalThis.blackcatCommands).length === 3, 'Initialize should preserve the three-item menu');
     results.push('remote updates and full initialization after pending changes');
 
     return results;

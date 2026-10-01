@@ -10,27 +10,11 @@
     </style>
     <script>
         globalThis.blackcatRuntimeErrors = [];
-        globalThis.blackcatPrepaintSeen = false;
-        globalThis.blackcatPrepaintBeforeBody = false;
-        globalThis.blackcatThemeReadySeen = false;
-        document.addEventListener('blackcat:prepaint-installed', () => {
-            blackcatPrepaintSeen = true;
-            blackcatPrepaintBeforeBody = !document.body;
-        }, {once: true});
-        document.addEventListener('blackcat:theme-ready', () => { blackcatThemeReadySeen = true; }, {once: true});
         addEventListener('error', (event) => blackcatRuntimeErrors.push(event.message));
         addEventListener('unhandledrejection', (event) => blackcatRuntimeErrors.push(String(event.reason)));
         const requestedLanguage = new URLSearchParams(location.search).get('lang');
         if (requestedLanguage) Object.defineProperty(navigator, 'language', {value: requestedLanguage, configurable: true});
         const blackcatStore = new Map();
-        const fixtureMode = new URLSearchParams(location.search);
-        if (fixtureMode.get('disabled') === '1') {
-            blackcatStore.set('blackcat.settings.v1', {enabled: false});
-        } else if (fixtureMode.get('prepaint') === 'off') {
-            blackcatStore.set('blackcat.settings.v1', {
-                automation: {mode: 'time', activation: '00:00', deactivation: '00:00', behavior: 'OnOff'},
-            });
-        }
         globalThis.GM_getValue = (key, fallback) => blackcatStore.has(key) ? blackcatStore.get(key) : fallback;
         globalThis.blackcatStoredSettings = () => blackcatStore.get('blackcat.settings.v1');
         globalThis.GM_setValue = async (key, value) => {

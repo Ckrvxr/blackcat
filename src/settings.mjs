@@ -3,24 +3,16 @@ export const DEFAULT_SETTINGS = Object.freeze({
     enabledByDefault: true,
     language: 'auto',
     engine: 'dynamicTheme',
-    mode: 1,
     brightness: 100,
     contrast: 100,
     grayscale: 0,
     sepia: 0,
-    darkSchemeBackgroundColor: '#181a1b',
-    darkSchemeTextColor: '#e8e6e3',
-    lightSchemeBackgroundColor: '#dcdad7',
-    lightSchemeTextColor: '#181a1b',
-    scrollbarColor: '',
-    selectionColor: 'auto',
     styleSystemControls: false,
     detectDarkTheme: true,
     automation: Object.freeze({
         mode: 'none',
         activation: '18:00',
         deactivation: '09:00',
-        behavior: 'OnOff',
     }),
     location: Object.freeze({latitude: null, longitude: null}),
     siteOverrides: Object.freeze({}),
@@ -29,22 +21,15 @@ export const DEFAULT_SETTINGS = Object.freeze({
 
 const ENGINES = new Set(['dynamicTheme', 'cssFilter', 'svgFilter', 'staticTheme']);
 const AUTOMATION_MODES = new Set(['none', 'system', 'time', 'location']);
-const AUTOMATION_BEHAVIORS = new Set(['OnOff', 'Scheme']);
 const LANGUAGE_PREFERENCES = new Set(['auto', 'en', 'zh-CN']);
 const THEME_RANGES = Object.freeze({
-    mode: [0, 1],
     brightness: [50, 150],
     contrast: [50, 150],
     grayscale: [0, 100],
     sepia: [0, 100],
 });
 const HOST_PATTERN = /^(?:\*\.)?(?:[a-z0-9.-]+|\[[a-f0-9:.]+\])$/i;
-const THEME_KEYS = [
-    ...Object.keys(THEME_RANGES),
-    'engine', 'darkSchemeBackgroundColor', 'darkSchemeTextColor',
-    'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'scrollbarColor', 'selectionColor',
-    'styleSystemControls', 'detectDarkTheme',
-];
+const THEME_KEYS = [...Object.keys(THEME_RANGES), 'engine', 'styleSystemControls', 'detectDarkTheme'];
 
 function finiteNumber(value, fallback, min, max) {
     if (typeof value !== 'number' || !Number.isFinite(value)) {
@@ -96,17 +81,6 @@ function normalizeSiteThemes(value) {
         .filter(([, theme]) => Object.keys(theme).length > 0));
 }
 
-function validColor(value, fallback) {
-    return typeof value === 'string' && /^#(?:[\da-f]{3}|[\da-f]{6})$/i.test(value) ? value : fallback;
-}
-
-function validThemeColor(value, fallback, allowEmpty = false) {
-    if (value === 'auto' || (allowEmpty && value === '')) {
-        return value;
-    }
-    return validColor(value, fallback);
-}
-
 export function normalizeSettings(value) {
     const input = value && typeof value === 'object' && !Array.isArray(value) ? value : {};
     const automation = input.automation && typeof input.automation === 'object' ? input.automation : {};
@@ -114,20 +88,12 @@ export function normalizeSettings(value) {
         ...DEFAULT_SETTINGS,
         ...Object.fromEntries(Object.entries(THEME_RANGES).map(([key, [min, max]]) => [
             key,
-            key === 'mode'
-                ? (input.mode === 0 || input.mode === 1 ? input.mode : DEFAULT_SETTINGS.mode)
-                : finiteNumber(input[key], DEFAULT_SETTINGS[key], min, max),
+            finiteNumber(input[key], DEFAULT_SETTINGS[key], min, max),
         ])),
         enabled: typeof input.enabled === 'boolean' ? input.enabled : DEFAULT_SETTINGS.enabled,
         enabledByDefault: typeof input.enabledByDefault === 'boolean' ? input.enabledByDefault : DEFAULT_SETTINGS.enabledByDefault,
         language: LANGUAGE_PREFERENCES.has(input.language) ? input.language : DEFAULT_SETTINGS.language,
         engine: ENGINES.has(input.engine) ? input.engine : DEFAULT_SETTINGS.engine,
-        darkSchemeBackgroundColor: validColor(input.darkSchemeBackgroundColor, DEFAULT_SETTINGS.darkSchemeBackgroundColor),
-        darkSchemeTextColor: validColor(input.darkSchemeTextColor, DEFAULT_SETTINGS.darkSchemeTextColor),
-        lightSchemeBackgroundColor: validColor(input.lightSchemeBackgroundColor, DEFAULT_SETTINGS.lightSchemeBackgroundColor),
-        lightSchemeTextColor: validColor(input.lightSchemeTextColor, DEFAULT_SETTINGS.lightSchemeTextColor),
-        scrollbarColor: validThemeColor(input.scrollbarColor, DEFAULT_SETTINGS.scrollbarColor, true),
-        selectionColor: validThemeColor(input.selectionColor, DEFAULT_SETTINGS.selectionColor),
         styleSystemControls: typeof input.styleSystemControls === 'boolean'
             ? input.styleSystemControls
             : DEFAULT_SETTINGS.styleSystemControls,
@@ -136,7 +102,6 @@ export function normalizeSettings(value) {
             mode: AUTOMATION_MODES.has(automation.mode) ? automation.mode : DEFAULT_SETTINGS.automation.mode,
             activation: normalizeTime(automation.activation, DEFAULT_SETTINGS.automation.activation),
             deactivation: normalizeTime(automation.deactivation, DEFAULT_SETTINGS.automation.deactivation),
-            behavior: AUTOMATION_BEHAVIORS.has(automation.behavior) ? automation.behavior : DEFAULT_SETTINGS.automation.behavior,
         },
         location: {
             latitude: normalizeCoordinate(input.location?.latitude, -90, 90),
@@ -151,17 +116,11 @@ export function toThemeOptions(value) {
     const settings = normalizeSettings(value);
     return {
         engine: settings.engine,
-        mode: settings.mode,
+        mode: 1,
         brightness: settings.brightness,
         contrast: settings.contrast,
         grayscale: settings.grayscale,
         sepia: settings.sepia,
-        darkSchemeBackgroundColor: settings.darkSchemeBackgroundColor,
-        darkSchemeTextColor: settings.darkSchemeTextColor,
-        lightSchemeBackgroundColor: settings.lightSchemeBackgroundColor,
-        lightSchemeTextColor: settings.lightSchemeTextColor,
-        scrollbarColor: settings.scrollbarColor,
-        selectionColor: settings.selectionColor,
         styleSystemControls: settings.styleSystemControls,
         detectDarkTheme: settings.detectDarkTheme,
     };
@@ -253,23 +212,14 @@ export function isWithinTimeWindow(start, end, date = new Date()) {
 }
 
 export function resolveAutomationState(settings, {systemDark = false, now = new Date(), locationNight = false} = {}) {
-    let shouldBeDark;
     switch (settings.automation.mode) {
         case 'system':
-            shouldBeDark = systemDark === true;
-            break;
+            return {enabled: systemDark === true};
         case 'time':
-            shouldBeDark = isWithinTimeWindow(settings.automation.activation, settings.automation.deactivation, now);
-            break;
+            return {enabled: isWithinTimeWindow(settings.automation.activation, settings.automation.deactivation, now)};
         case 'location':
-            shouldBeDark = locationNight === true;
-            break;
+            return {enabled: locationNight === true};
         default:
-            return {enabled: true, mode: settings.mode};
+            return {enabled: true};
     }
-
-    if (settings.automation.behavior === 'Scheme') {
-        return {enabled: true, mode: shouldBeDark ? 1 : 0};
-    }
-    return {enabled: shouldBeDark, mode: settings.mode};
 }

@@ -1,6 +1,6 @@
 import {openSettingsPanel} from '../src/settings-panel.mjs';
-import {DEFAULT_SETTINGS, normalizeSettings, toThemeOptions} from '../src/settings.mjs';
-import {getPanelValue} from '../src/settings-panel-state.mjs';
+import {DEFAULT_SETTINGS, normalizeSettings} from '../src/settings.mjs';
+import {THEME_SETTING_KEYS, getPanelValue} from '../src/settings-panel-state.mjs';
 
 // Runs against real DOM controls in Chromium, not a mock DOM.
 export async function runPanelBrowserTests() {
@@ -29,23 +29,24 @@ export async function runPanelBrowserTests() {
     assert(root().querySelectorAll('footer button').length === 0, 'Initialization must not remain in the footer');
     assert(root().querySelector('[data-page="other"] [data-action="initialize"]'), 'Initialization must be inside Other');
     assert(!control('enabled') && !control('enabledByDefault'), 'Global enable and default-site switches must be removed from the panel');
+    for (const key of ['mode', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor', 'automation.behavior']) {
+        assert(!control(key), `Removed setting must not appear: ${key}`);
+    }
     assert(!root().querySelector('.backdrop, [aria-modal="true"], button[type="submit"]'), 'The window must be nonmodal with no save/cancel flow');
     const bounds = root().querySelector('[role="dialog"]').getBoundingClientRect();
     assert(bounds.right <= innerWidth && bounds.top >= 0 && bounds.top < 40, 'The window must stay at top right');
     results.push('nonmodal floating layout and four tabs');
 
-    for (const key of [...Object.keys(toThemeOptions(DEFAULT_SETTINGS)), 'siteEnabled', 'siteThemeOnly', 'language', 'automation.mode', 'automation.behavior', 'automation.activation', 'automation.deactivation', 'location.latitude', 'location.longitude']) {
+    for (const key of [...THEME_SETTING_KEYS, 'siteEnabled', 'siteThemeOnly', 'language', 'automation.mode', 'automation.activation', 'automation.deactivation', 'location.latitude', 'location.longitude']) {
         assert(control(key), `Existing setting was lost: ${key}`);
         assert(control(key).labels?.length > 0, `Unlabelled control: ${key}`);
     }
     results.push('all settings retained with labels');
 
     for (const [key, value] of [
-        ['mode', 0], ['engine', 'cssFilter'], ['contrast', 120], ['grayscale', 30], ['sepia', 25],
-        ['styleSystemControls', true], ['detectDarkTheme', false], ['darkSchemeBackgroundColor', '#202124'],
-        ['darkSchemeTextColor', '#eeeeee'], ['lightSchemeBackgroundColor', '#cccccc'], ['lightSchemeTextColor', '#222222'],
-        ['scrollbarColor', '#abc'], ['siteEnabled', false],
-        ['automation.behavior', 'Scheme'], ['automation.deactivation', '08:30'],
+        ['engine', 'cssFilter'], ['contrast', 120], ['grayscale', 30], ['sepia', 25],
+        ['styleSystemControls', true], ['detectDarkTheme', false], ['siteEnabled', false],
+        ['automation.deactivation', '08:30'],
     ]) {
         await change(key, value);
         assert(getPanelValue(saved.at(-1), location.hostname, key) === value, `Setting failed to persist: ${key}`);
@@ -95,15 +96,6 @@ export async function runPanelBrowserTests() {
     await change('location.latitude', '');
     assert(saved.at(-1).location.latitude === null, 'Empty coordinates should clear the location');
     results.push('conditional automation and input validation');
-
-    await change('selectionColor', '#abc');
-    assert(saved.at(-1).selectionColor === '#abc', 'Short hex is supported');
-    const beforeColor = saved.length;
-    await change('selectionColor', '#zzzzzz');
-    assert(saved.length === beforeColor, 'Invalid hex must not be persisted');
-    await change('selectionColor', 'auto');
-    assert(!control('selectionColor').closest('.field').classList.contains('changed'), 'Automatic selection must not be bold');
-    results.push('color validation without unwanted resets');
 
     root().querySelector('[data-tab="other"]').click();
     await change('language', 'zh-CN');

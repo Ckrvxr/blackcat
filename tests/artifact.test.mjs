@@ -13,7 +13,8 @@ const adapter = readFileSync(path.join(projectRoot, 'src/userscript-entry.mjs'),
 const panel = readFileSync(path.join(projectRoot, 'src/settings-panel.mjs'), 'utf8');
 const panelState = readFileSync(path.join(projectRoot, 'src/settings-panel-state.mjs'), 'utf8');
 const settings = readFileSync(path.join(projectRoot, 'src/settings.mjs'), 'utf8');
-const uiSource = [adapter, panel, panelState, settings].join('\n');
+const i18n = readFileSync(path.join(projectRoot, 'src/i18n.mjs'), 'utf8');
+const uiSource = [adapter, panel, panelState, settings, i18n].join('\n');
 
 test('built userscript is self-contained and updates from an explicit release ref', () => {
     assert.match(script, /^\/\/ ==UserScript==/);
@@ -26,28 +27,25 @@ test('built userscript is self-contained and updates from an explicit release re
     assert.ok(script.includes(`// @version      ${packageJSON.version}`), 'userscript version must match package.json');
     assert.doesNotMatch(script, /^\/\/ @require/m, 'installer must not fetch runtime scripts');
     assert.ok(script.includes('Blackcat Dark Reader engine'), 'Dark Reader must be bundled into the installer');
-    const prepaintIndex = script.indexOf('blackcat-prepaint');
     const engineAPIIndex = script.indexOf('Object.assign(globalThis,{BlackcatDarkReaderEngine:');
-    assert.ok(prepaintIndex >= 0, 'early anti-flash bootstrap must be bundled into the installer');
-    assert.ok(engineAPIIndex > prepaintIndex, 'prepaint code must execute before the engine initializes');
+    assert.ok(engineAPIIndex >= 0, 'Dark Reader engine must be bundled into the installer');
+    assert.doesNotMatch(script, /blackcat-prepaint|blackcat:theme-ready|blackcat:prepaint-installed/, 'installer must not inject a temporary background');
 });
 
 test('userscript menu labels omit the redundant project prefix', () => {
     assert.doesNotMatch(adapter, /\[Blackcat\] \$\{label\}/);
 });
 
-test('exposes exactly four menu commands in the requested order', () => {
+test('exposes exactly three menu commands in the requested order', () => {
     const registeredMenuKeys = [...adapter.matchAll(/menuIds\.push\(register\(t\('menu\.([A-Za-z]+)'/g)]
         .map((match) => match[1]);
-    assert.deepEqual(registeredMenuKeys, ['site', 'global', 'colorMode', 'settings']);
+    assert.deepEqual(registeredMenuKeys, ['site', 'global', 'settings']);
 });
 
 test('userscript bundle includes the requested Chinese menu labels and settings UI', () => {
     assert.ok(script.includes('⚙️ 更多设置'));
     assert.ok(script.includes('🌍 全局：{status}'));
     assert.ok(script.includes('🌐 此网站上: {status}'));
-    assert.ok(script.includes('🌗 色彩模式：{mode}'));
-    assert.doesNotMatch(script, /色彩模式：\{mode\}（切换）/);
     assert.ok(script.includes('即时生效 · 自动保存'));
     assert.ok(script.includes('初始化'));
     assert.ok(script.includes('panel.other'));
@@ -66,6 +64,15 @@ test('floating settings bundle has no modal or save/cancel workflow', () => {
     assert.ok(script.includes('dataset.setting'));
     assert.doesNotMatch(uiSource, /data-action=["'](?:save|cancel)|aria-modal/);
     assert.doesNotMatch(panel, /className\s*=\s*['"]backdrop/);
+});
+
+test('theme UI is fixed to dark and omits palette customization', () => {
+    assert.equal(settings.includes('mode: 1'), true);
+    for (const setting of ['mode', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor', 'automation.behavior']) {
+        assert.doesNotMatch(panel, new RegExp(`['\"]${setting}['\"]`));
+        assert.doesNotMatch(i18n, new RegExp(setting));
+    }
+    assert.doesNotMatch(adapter, /menu\.colorMode/);
 });
 
 test('userscript adapter no longer exposes font or text stroke settings', () => {

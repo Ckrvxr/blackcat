@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {DEFAULT_SETTINGS, normalizeSettings, toThemeOptions} from '../src/settings.mjs';
-import {changePanelSetting, getPanelValue, isPanelSettingChanged, createSettingsCommitter} from '../src/settings-panel-state.mjs';
+import {THEME_SETTING_KEYS, changePanelSetting, getPanelValue, isPanelSettingChanged, createSettingsCommitter} from '../src/settings-panel-state.mjs';
 
 const host = 'example.com';
 
@@ -16,7 +16,8 @@ test('changing one field preserves other settings and other sites', () => {
 });
 
 test('all engine options remain editable in global and site scopes', () => {
-    for (const [key, value] of Object.entries(toThemeOptions(DEFAULT_SETTINGS))) {
+    for (const key of THEME_SETTING_KEYS) {
+        const value = toThemeOptions(DEFAULT_SETTINGS)[key];
         const global = changePanelSetting(normalizeSettings({}), host, key, value);
         assert.equal(getPanelValue(global, host, key), value);
         const scoped = changePanelSetting(global, host, 'siteThemeOnly', true);
@@ -38,7 +39,7 @@ test('site theme toggle copies the current appearance and never overwrites globa
 
 test('automation, coordinates, language and enablement change independently', () => {
     let current = normalizeSettings({});
-    for (const [key, value] of [['automation.mode', 'location'], ['automation.behavior', 'Scheme'], ['location.latitude', 30], ['location.longitude', 120], ['language', 'en'], ['enabled', false], ['enabledByDefault', false], ['siteEnabled', true]]) {
+    for (const [key, value] of [['automation.mode', 'location'], ['location.latitude', 30], ['location.longitude', 120], ['language', 'en'], ['enabled', false], ['enabledByDefault', false], ['siteEnabled', true]]) {
         current = changePanelSetting(current, host, key, value);
         assert.equal(getPanelValue(current, host, key), value);
     }
@@ -46,7 +47,7 @@ test('automation, coordinates, language and enablement change independently', ()
     assert.equal(current.location.latitude, 30);
 });
 
-test('bold markers compare against factory defaults, including site values and equivalent hex colors', () => {
+test('bold markers compare global and site values against factory defaults', () => {
     let current = normalizeSettings({});
     assert.equal(isPanelSettingChanged(current, host, 'brightness'), false);
     current = changePanelSetting(current, host, 'brightness', 110);
@@ -55,7 +56,6 @@ test('bold markers compare against factory defaults, including site values and e
     current = changePanelSetting(current, host, 'brightness', 100);
     assert.equal(isPanelSettingChanged(current, host, 'brightness'), false);
     assert.equal(isPanelSettingChanged(current, host, 'siteThemeOnly'), true);
-    assert.equal(isPanelSettingChanged(normalizeSettings({darkSchemeBackgroundColor: '#181A1B'}), host, 'darkSchemeBackgroundColor'), false);
     assert.equal(isPanelSettingChanged(normalizeSettings({location: {latitude: ''}}), host, 'location.latitude'), false);
 });
 
@@ -73,6 +73,15 @@ test('site enablement can override an inherited wildcard rule', () => {
     assert.equal(next.siteOverrides[hostname], true);
     const restored = changePanelSetting(next, hostname, 'siteEnabled', false);
     assert.deepEqual(restored.siteOverrides, initial.siteOverrides);
+});
+
+test('fixed dark mode and removed palette fields are not panel settings', () => {
+    const removedSettings = ['mode', 'darkSchemeBackgroundColor', 'darkSchemeTextColor', 'lightSchemeBackgroundColor', 'lightSchemeTextColor', 'selectionColor', 'scrollbarColor', 'automation.behavior'];
+    for (const key of removedSettings) {
+        assert.equal(THEME_SETTING_KEYS.includes(key), false);
+        assert.throws(() => changePanelSetting(normalizeSettings({}), host, key, 'value'), TypeError);
+    }
+    assert.equal(toThemeOptions(DEFAULT_SETTINGS).mode, 1);
 });
 
 test('unknown panel fields are rejected instead of becoming stored data', () => {
