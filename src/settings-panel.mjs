@@ -72,7 +72,7 @@ export function openSettingsPanel({settings, hostname, onChange}) {
         body.scrollTop = 0;
         if (focus) tabs.get(name).focus();
     };
-    for (const [key, label] of [['theme', 'panel.theme'], ['site', 'panel.siteTab'], ['automation', 'panel.automation'], ['general', 'panel.general']]) {
+    for (const [key, label] of [['theme', 'panel.theme'], ['site', 'panel.siteTab'], ['automation', 'panel.automation'], ['other', 'panel.other']]) {
         const tab = message(element('button', 'tab', tabList), label);
         tab.type = 'button';
         tab.dataset.tab = key;
@@ -221,21 +221,22 @@ export function openSettingsPanel({settings, hostname, onChange}) {
     addControl(coordinates, 'location.longitude', 'panel.longitude', 'number', {min: -180, max: 180, step: 'any'});
     hint(coordinates, 'panel.locationNote');
 
-    const general = pages.get('general');
-    addCheck(general, 'enabled', 'panel.enabled');
-    addCheck(general, 'enabledByDefault', 'panel.enabledByDefault');
-    addSelect(general, 'language', 'panel.language', [['auto', 'panel.languageAuto'], ['en', 'panel.languageEnglish'], ['zh-CN', 'panel.languageChinese']]);
-    hint(general, 'panel.defaultsHelp');
-
-    const footer = element('footer', '', panel);
-    message(element('span', 'live-note', footer), 'panel.live');
-    const initialize = message(element('button', 'initialize', footer), 'panel.reset');
+    const other = pages.get('other');
+    addSelect(other, 'language', 'panel.language', [['auto', 'panel.languageAuto'], ['en', 'panel.languageEnglish'], ['zh-CN', 'panel.languageChinese']]);
+    hint(other, 'panel.defaultsHelp');
+    const initializeDescription = hint(other, 'panel.initializeHelp');
+    initializeDescription.id = 'blackcat-initialize-help';
+    const initialize = message(element('button', 'initialize', element('div', 'other-action', other)), 'panel.reset');
     initialize.type = 'button';
     initialize.dataset.action = 'initialize';
+    initialize.setAttribute('aria-describedby', initializeDescription.id);
     initialize.addEventListener('click', () => {
         for (const control of controls.values()) control.removeAttribute('aria-invalid');
         commit(changePanelSetting(current, hostname, 'initialize'));
     });
+
+    const footer = element('footer', '', panel);
+    message(element('span', 'live-note', footer), 'panel.live');
 
     function refresh() {
         panel.lang = resolveLanguage(current.language);

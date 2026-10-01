@@ -1,9 +1,10 @@
-import {existsSync, mkdirSync, readFileSync, statSync, writeFileSync} from 'node:fs';
+import {existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync} from 'node:fs';
 import path from 'node:path';
 import {fileURLToPath} from 'node:url';
 import replace from '@rollup/plugin-replace';
 import typescript from '@rollup/plugin-typescript';
 import {rollup} from 'rollup';
+import {build as viteBuild} from 'vite';
 import ts from 'typescript';
 import {minify} from 'terser';
 import {ensureUpstream} from './ensure-upstream.mjs';
@@ -12,13 +13,26 @@ import {createUserscriptMetadata} from './metadata.mjs';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const packageJSON = JSON.parse(readFileSync(path.join(projectRoot, 'package.json'), 'utf8'));
 const upstreamPin = JSON.parse(readFileSync(path.join(projectRoot, 'upstream.json'), 'utf8'));
-const assetRef = process.argv.slice(2).find((arg) => arg.startsWith('--ref='))?.slice('--ref='.length) || 'main';
+const releaseRef = process.argv.slice(2).find((arg) => arg.startsWith('--ref='))?.slice('--ref='.length) || 'main';
 const upstreamPath = ensureUpstream(projectRoot, upstreamPin);
 const upstreamSource = path.join(upstreamPath, 'src');
 const buildCache = path.join(projectRoot, '.cache', 'blackcat-build');
 const configModulePath = path.join(buildCache, 'darkreader-config.ts');
 const tsconfigPath = path.join(buildCache, 'tsconfig.json');
 const dist = path.join(projectRoot, 'dist');
+const replacementValues = {
+    __DEBUG__: 'false',
+    __TEST__: 'false',
+    __CHROMIUM_MV2__: 'false',
+    __CHROMIUM_MV3__: 'false',
+    __FIREFOX_MV2__: 'false',
+    __THUNDERBIRD__: 'false',
+    __PLUS__: 'false',
+};
+
+function replacementPlugin() {
+    return replace({preventAssignment: true, values: replacementValues});
+}
 
 function readConfig(name) {
     return readFileSync(path.join(upstreamSource, 'config', name), 'utf8');
@@ -101,18 +115,7 @@ const upstreamBundle = await rollup({
             tsconfig: tsconfigPath,
             compilerOptions: {noEmit: false, noEmitOnError: true, declaration: false, sourceMap: false},
         }),
-        replace({
-            preventAssignment: true,
-            values: {
-                __DEBUG__: 'false',
-                __TEST__: 'false',
-                __CHROMIUM_MV2__: 'false',
-                __CHROMIUM_MV3__: 'false',
-                __FIREFOX_MV2__: 'false',
-                __THUNDERBIRD__: 'false',
-                __PLUS__: 'false',
-            },
-        }),
+        replacementPlugin(),
     ],
     onwarn(warning, warn) {
         if (warning.code === 'UNRESOLVED_IMPORT') {
@@ -140,15 +143,60 @@ if (!minifiedEngine.code) {
 writeFileSync(path.join(dist, 'engine.js'), `${minifiedEngine.code}\n`);
 await upstreamBundle.close();
 
-const userscriptBundle = await rollup({input: path.join(projectRoot, 'src/userscript-entry.mjs')});
-const userscriptOutput = await userscriptBundle.generate({
-    format: 'iife',
-    name: 'BlackcatUserscript',
-    compact: false,
-    banner: createUserscriptMetadata({version: packageJSON.version, assetRef}),
+const selfContainedDir = path.join(buildCache, 'self-contained');
+await viteBuild({
+    configFile: false,
+    root: projectRoot,
+    publicDir: false,
+    logLevel: 'warn',
+    plugins: [
+        darkReaderResolver(),
+        replacementPlugin(),
+    ],
+    build: {
+        lib: {
+            entry: path.join(projectRoot, 'src/bundle-entry.mjs'),
+            name: 'BlackcatUserscript',
+            formats: ['iife'],
+            fileName: 'blackcat-bundle',
+        },
+        target: 'es2020',
+        outDir: selfContainedDir,
+        emptyOutDir: true,
+        cssCodeSplit: false,
+        assetsInlineLimit: Number.POSITIVE_INFINITY,
+        minify: false,
+        sourcemap: false,
+        reportCompressedSize: false,
+        rollupOptions: {
+            onwarn(warning, warn) {
+                if (warning.code === 'UNRESOLVED_IMPORT') throw new Error(warning.message);
+                warn(warning);
+            },
+            output: {
+                inlineDynamicImports: true,
+            },
+        },
+    },
 });
-writeFileSync(path.join(dist, 'blackcat.user.js'), userscriptOutput.output.find((chunk) => chunk.type === 'chunk').code);
-await userscriptBundle.close();
+const bundleFiles = readdirSync(selfContainedDir);
+if (bundleFiles.length !== 1 || !bundleFiles[0].endsWith('.js')) {
+    throw new Error(`Expected one self-contained Vite JavaScript output, received: ${bundleFiles.join(', ') || 'none'}`);
+}
+const engineBanner = `/*! Blackcat Dark Reader engine | Dark Reader ${upstreamPin.version} | MIT | source ${upstreamPin.commit} */`;
+const bundleCode = `${engineBanner}\n${readFileSync(path.join(selfContainedDir, bundleFiles[0]), 'utf8')}`;
+const minifiedUserscript = await minify(bundleCode, {
+    ecma: 2020,
+    compress: {passes: 2},
+    mangle: true,
+    format: {comments: /^!/},
+});
+if (!minifiedUserscript.code) throw new Error('Terser produced no userscript output');
+writeFileSync(path.join(dist, 'blackcat.user.js'), [
+    createUserscriptMetadata({version: packageJSON.version, releaseRef}),
+    minifiedUserscript.code,
+    '',
+].join('\n'));
 
 writeFileSync(path.join(dist, 'upstream.json'), `${JSON.stringify({
     name: upstreamPin.name,

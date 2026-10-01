@@ -41,6 +41,10 @@ function getThemeOptions(settings, now = new Date()) {
 
 let appliedSignature = null;
 
+function signalThemeReady() {
+    document.dispatchEvent(new Event('blackcat:theme-ready'));
+}
+
 function apply(settings, force = true) {
     const themeOptions = getThemeOptions(settings);
     if (!themeOptions) {
@@ -48,15 +52,16 @@ function apply(settings, force = true) {
             ENGINE.disable();
         }
         appliedSignature = null;
+        signalThemeReady();
         return;
     }
     if (!ENGINE || typeof ENGINE.apply !== 'function') {
-        console.warn('[Blackcat] Dark Reader engine did not load. Check the userscript manager network/cache.');
+        console.warn('[Blackcat] Bundled Dark Reader engine did not initialize.');
         return;
     }
     const signature = JSON.stringify(themeOptions);
     if (force || signature !== appliedSignature) {
-        ENGINE.apply(themeOptions);
+        ENGINE.apply(themeOptions, signalThemeReady);
     }
     appliedSignature = signature;
 }

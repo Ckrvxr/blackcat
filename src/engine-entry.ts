@@ -43,7 +43,7 @@ function removeTheme(): void {
     enabled = false;
 }
 
-function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}): void {
+function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}, onSettled?: () => void): void {
     const {detectDarkTheme = true, ...themeOptions} = options;
     const theme = {...DEFAULT_THEME, ...themeOptions} as Theme;
     const url = window.location.href;
@@ -51,6 +51,12 @@ function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}):
 
     removeTheme();
     const currentRevision = applyRevision;
+    let settled = false;
+    const settle = () => {
+        if (settled || currentRevision !== applyRevision) return;
+        settled = true;
+        onSettled?.();
+    };
     const applyEngine = () => {
         if (currentRevision !== applyRevision) return;
         switch (theme.engine) {
@@ -79,6 +85,7 @@ function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}):
                 throw new TypeError(`Unsupported Dark Reader theme engine: ${String(theme.engine)}`);
         }
         enabled = true;
+        settle();
     };
 
     if (!detectDarkTheme) {
@@ -89,6 +96,7 @@ function applyTheme(options: Partial<Theme> & {detectDarkTheme?: boolean} = {}):
     const hints = getDetectorHintsFor(url, detectorHints, detectorHintsIndex);
     runDarkThemeDetector((hasDarkTheme) => {
         if (!hasDarkTheme) applyEngine();
+        else settle();
     }, hints || []);
 }
 
@@ -102,7 +110,7 @@ const api = Object.freeze({
     isEnabled: () => enabled,
 });
 
-// @require can evaluate this IIFE inside a manager wrapper, where Rollup's `var` is not global.
+// The adapter is a sibling bundle module, so expose this API on the userscript global explicitly.
 Object.assign(globalThis, {BlackcatDarkReaderEngine: api});
 
 export default api;
